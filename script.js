@@ -38,8 +38,13 @@ window.currentGameCategory = null;
 let currentSupercellGame = null;
 window.currentSupercellGame = null;
 
-// API бота: берём из config.js. НЕ перезаписываем — на jetstoreapp.ru статика (GitHub Pages),
-// API работает на отдельном сервере (бот). Укажи в config.js: window.JET_API_BASE = 'https://твой-бот.ru';
+// API бота: из config.js. При открытии с jetstoreapp.ru подставляем тот же домен, если не задан другой.
+(function() {
+    var host = (typeof window !== 'undefined' && window.location?.hostname) ? window.location.hostname.toLowerCase() : '';
+    if ((host === 'jetstoreapp.ru' || host === 'www.jetstoreapp.ru') && !(window.JET_API_BASE && window.JET_API_BASE !== '')) {
+        window.JET_API_BASE = window.location.origin || 'https://jetstoreapp.ru';
+    }
+})();
 
 // Инициализация при загрузке
 document.addEventListener('DOMContentLoaded', function() {
@@ -802,13 +807,23 @@ function checkTelegramUser(inputId, previewId) {
         localStorage.getItem('jet_api_base') ||
         '';
     const url = `${apiBase}/api/telegram/user?username=${encodeURIComponent(cleanUsername)}`;
-    const isGithubPages = typeof window !== 'undefined' && /github\.io$/i.test(window.location?.hostname || '');
-    if (!apiBase && isGithubPages) {
-        // На GitHub Pages относительный /api/* не существует — нужен публичный домен бэкенда
+    const host = typeof window !== 'undefined' ? (window.location?.hostname || '') : '';
+    const isLocalSite = /localhost|127\.0\.0\.1/i.test(host);
+    if (!apiBase) {
         if (typeof showStoreNotification === 'function') {
-            showStoreNotification('API не настроен. Укажите адрес сервера (JET_API_BASE).', 'error');
+            showStoreNotification('API бота не указан. Откройте config.js и задайте window.JET_API_BASE (см. SETUP_API.md).', 'error');
         }
-        // Падаем в фолбэк-отображение ника, чтобы UI не был пустым
+        if (inputId === 'starsRecipient') {
+            setStarsRecipientState('found', { avatar: '', firstName: '', lastName: '', username: cleanUsername });
+        } else {
+            showUserPreview(previewId, { avatar: '', firstName: '', lastName: '', username: cleanUsername });
+        }
+        return;
+    }
+    if (!isLocalSite && /^https?:\/\/localhost(\b|:)|^https?:\/\/127\.0\.0\.1(\b|:)/i.test(apiBase)) {
+        if (typeof showStoreNotification === 'function') {
+            showStoreNotification('Сайт открыт не с этого ПК — localhost недоступен. Укажите в config.js публичный адрес бота (ngrok или VPS) и залейте обновлённый config.js.', 'error');
+        }
         if (inputId === 'starsRecipient') {
             setStarsRecipientState('found', { avatar: '', firstName: '', lastName: '', username: cleanUsername });
         } else {
@@ -862,7 +877,12 @@ function checkTelegramUser(inputId, previewId) {
         })
         .catch((err) => {
             console.warn('Telegram user lookup failed:', url, err);
-            const msg = err.serverMessage || (err.status === 404 ? 'Пользователь не найден. Убедитесь, что указан верный @username.' : (err.status === 500 ? 'Ошибка сервера. Попробуйте позже.' : 'Не удалось получить данные пользователя. Проверьте подключение и адрес API.'));
+            let msg = err.serverMessage;
+            if (!msg) {
+                if (err.status === 404) msg = 'Пользователь не найден. Убедитесь, что указан верный @username.';
+                else if (err.status === 500) msg = 'Ошибка сервера. Попробуйте позже.';
+                else msg = 'Сервер бота недоступен. Убедитесь: 1) бот запущен (bot.py), 2) в config.js указан правильный адрес (JET_API_BASE), 3) при открытии с jetstoreapp.ru — адрес должен быть публичным (ngrok или VPS). См. SETUP_API.md.';
+            }
             if (inputId === 'starsRecipient') {
                 setStarsRecipientState('found', {
                     avatar: '',
