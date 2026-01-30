@@ -38,16 +38,8 @@ window.currentGameCategory = null;
 let currentSupercellGame = null;
 window.currentSupercellGame = null;
 
-// Автоопределение API при работе на jetstoreapp.ru
-(function() {
-    const host = (typeof window !== 'undefined' && window.location?.hostname) ? window.location.hostname.toLowerCase() : '';
-    if (host === 'jetstoreapp.ru' || host === 'www.jetstoreapp.ru') {
-        window.JET_API_BASE = window.location.origin || 'https://jetstoreapp.ru';
-        if (typeof localStorage !== 'undefined') {
-            try { localStorage.setItem('jet_api_base', window.JET_API_BASE); } catch (e) {}
-        }
-    }
-})();
+// API бота: берём из config.js. НЕ перезаписываем — на jetstoreapp.ru статика (GitHub Pages),
+// API работает на отдельном сервере (бот). Укажи в config.js: window.JET_API_BASE = 'https://твой-бот.ru';
 
 // Инициализация при загрузке
 document.addEventListener('DOMContentLoaded', function() {
