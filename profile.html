@@ -457,12 +457,11 @@
             align-items: center;
             gap: 16px;
             padding: 18px 20px;
-            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
-            border: none;
+            background: #0a0a0a;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 16px;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
             position: relative;
             overflow: hidden;
         }
@@ -484,7 +483,8 @@
         
         .btn-tonkeeper:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(0, 212, 255, 0.6);
+            background: #111;
+            border-color: rgba(255, 255, 255, 0.15);
         }
         
         .btn-tonkeeper:active {
@@ -494,7 +494,7 @@
         .tonkeeper-icon {
             width: 50px;
             height: 50px;
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
             border-radius: 12px;
             display: flex;
             align-items: center;
@@ -520,6 +520,10 @@
             color: rgba(255, 255, 255, 0.7);
             font-size: 0.85rem;
             margin-top: 2px;
+        }
+        
+        .btn-tonkeeper .tonkeeper-arrow {
+            color: rgba(255, 255, 255, 0.5);
         }
         
         .tonkeeper-arrow {
@@ -2115,20 +2119,6 @@
                 </button>
             </div>
             
-            <!-- Кнопка Мои подарки -->
-            <div class="user-gifts-section">
-                <button class="btn-user-gifts" onclick="goToUserGifts()">
-                    <div class="user-gifts-icon">
-                        <i class="fas fa-gift"></i>
-                    </div>
-                    <div class="user-gifts-text">
-                        <span class="user-gifts-title">Ваши подарки</span>
-                        <span class="user-gifts-subtitle">Управление NFT подарками</span>
-                    </div>
-                    <i class="fas fa-chevron-right user-gifts-arrow"></i>
-                </button>
-            </div>
-            
             <!-- Секция информации и реферальная программа -->
             <div class="info-section">
                 <div class="info-item" onclick="showInfo('about')">
@@ -2431,8 +2421,8 @@
                 const balanceNum = parseFloat(balance);
                 const balanceText = isNaN(balanceNum) ? balance : balanceNum.toLocaleString('ru-RU');
                 
-                titleEl.textContent = 'TonKeeper подключен';
-                subtitleEl.textContent = `${shortAddr} · ${balanceText} TON`;
+                titleEl.textContent = shortAddr;
+                subtitleEl.textContent = `${balanceText} TON`;
             } else {
                 titleEl.textContent = 'Подключить TonKeeper';
                 subtitleEl.textContent = 'Криптокошелёк для TON';

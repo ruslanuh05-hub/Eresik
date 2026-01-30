@@ -843,13 +843,15 @@ function checkTelegramUser(inputId, previewId) {
             return res.json();
         })
         .then(data => {
-            if (!data || !data.username) throw new Error('not_found');
+            if (!data) throw new Error('not_found');
+            const usernameFromApi = (data.username || data.user_name || cleanUsername || '').toString().replace('@', '');
+            if (!usernameFromApi) throw new Error('not_found');
 
             const resolved = {
-                avatar: data.avatar || data.avatarUrl || '',
+                avatar: data.avatar || data.avatarUrl || data.photo_url || '',
                 firstName: data.firstName || data.first_name || '',
                 lastName: data.lastName || data.last_name || '',
-                username: (data.username || cleanUsername).toString().replace('@', '')
+                username: usernameFromApi
             };
 
             if (inputId === 'starsRecipient') {
@@ -2272,10 +2274,8 @@ function showPaymentWaiting() {
         primaryBtn.disabled = false;
         if (data.purchase?.type === 'steam') {
             primaryBtn.textContent = 'Запустить пополнение Steam';
-        } else if (data.purchase?.type === 'stars') {
-            primaryBtn.textContent = 'Выдать звёзды через Fragment';
         } else {
-            primaryBtn.textContent = 'Открыть страницу оплаты';
+            primaryBtn.textContent = 'Перейти на страницу оплаты';
         }
     }
 
@@ -2400,55 +2400,19 @@ function openPaymentPage() {
         return;
     }
     
-    // Покупка звёзд: выдача через fragment.com
+    // Покупка звёзд: просто переход на страницу оплаты (без Fragment)
     if (data.purchase?.type === 'stars') {
-        const apiBase = window.JET_API_BASE || localStorage.getItem('jet_api_base') || '';
-        const starsAmount = data.purchase.stars_amount || selectedStars?.amount;
-        const recipient = (data.purchase.login || '').trim().replace(/^@/, '');
-        
-        if (!apiBase) {
-            showStoreNotification('API не настроен (JET_API_BASE)', 'error');
-            return;
+        if (typeof showStoreNotification === 'function') {
+            showStoreNotification('Открываем страницу оплаты...', 'info');
         }
-        if (!starsAmount || starsAmount < 50) {
-            showStoreNotification('Минимум 50 звёзд', 'error');
-            return;
+        const payUrl = data.payment_url || data.pay_url;
+        if (payUrl && (window.Telegram?.WebApp?.openLink || window.open)) {
+            if (window.Telegram?.WebApp?.openLink) {
+                window.Telegram.WebApp.openLink(payUrl);
+            } else {
+                window.open(payUrl, '_blank');
+            }
         }
-        if (!recipient) {
-            showStoreNotification('Укажите получателя (@username)', 'error');
-            return;
-        }
-        
-        if (primaryBtn) {
-            primaryBtn.disabled = true;
-            primaryBtn.textContent = 'Выдача звёзд...';
-        }
-        if (statusEl) statusEl.textContent = 'Отправка в Fragment...';
-        
-        fetch(`${apiBase}/api/fragment/deliver-stars`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ stars_amount: starsAmount, recipient: recipient })
-        })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    showStoreNotification(`✅ ${starsAmount} звёзд выданы на @${recipient}`, 'success');
-                    closePaymentWaiting();
-                    if (typeof showStoreView === 'function') showStoreView('stars');
-                } else {
-                    throw new Error(res.message || res.error || 'Ошибка Fragment');
-                }
-            })
-            .catch(err => {
-                console.error('Fragment deliver error:', err);
-                if (statusEl) statusEl.textContent = 'Ошибка';
-                if (primaryBtn) {
-                    primaryBtn.disabled = false;
-                    primaryBtn.textContent = 'Повторить выдачу';
-                }
-                showStoreNotification(err.message || 'Ошибка выдачи звёзд. Проверьте fragment_config.json', 'error');
-            });
         return;
     }
     

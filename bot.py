@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 # ============ НАСТРОЙКИ ============
 # Домен: Jetstoreapp.ru
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8365984377:AAHSK_cjdgQ0s55iwVKGfJsUh0yDjr4TWLI")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8528977779:AAHbPeWIA8rNuDyHc_eI7F7c2qr3M8Xw3_o")
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "6928639672").split(",") if x.strip()]
 WEB_APP_URL = os.getenv("WEB_APP_URL", "https://jetstoreapp.ru")
 ADM_WEB_APP_URL = os.getenv("ADM_WEB_APP_URL", "https://jetstoreapp.ru/admin.html")
@@ -1290,34 +1290,47 @@ async def cmd_users(message: types.Message):
 
 # ============ HTTP API ДЛЯ ПОЛУЧЕНИЯ ДАННЫХ ПОЛЬЗОВАТЕЛЯ ============
 
+def _get_username_from_request(request) -> str:
+    """Надёжно извлекаем username из query (aiohttp по-разному парсит в зависимости от клиента)."""
+    username = ""
+    # 1) rel_url.query — стандартный способ в aiohttp
+    try:
+        q = getattr(request, "rel_url", None) and getattr(request.rel_url, "query", None)
+        if q and hasattr(q, "get"):
+            username = (q.get("username") or "").strip()
+    except Exception:
+        pass
+    # 2) request.query (если есть)
+    if not username:
+        try:
+            q = getattr(request, "query", None)
+            if q and hasattr(q, "get"):
+                username = (q.get("username") or "").strip()
+        except Exception:
+            pass
+    # 3) Парсим сырую query_string через parse_qs
+    if not username and getattr(request, "query_string", None):
+        try:
+            from urllib.parse import parse_qs, unquote
+            raw = (request.query_string or "").strip()
+            if raw:
+                parsed = parse_qs(raw, keep_blank_values=False)
+                vals = parsed.get("username", [])
+                if vals:
+                    username = (vals[0] or "").strip()
+            if not username:
+                decoded = unquote(raw)
+                if "username=" in decoded:
+                    username = decoded.split("username=", 1)[1].split("&", 1)[0].strip()
+        except Exception:
+            pass
+    return username or ""
+
+
 async def get_telegram_user_handler(request):
     """HTTP эндпоинт для получения данных пользователя Telegram по username"""
     try:
-        username = request.query.get('username', '').strip()
-
-        # Некоторые браузеры/прокси могут прислать кривой query вида:
-        #   /api/telegram/user?username%3Ddurov
-        # Тогда aiohttp считает, что ключ = "username=durov", а значение пустое.
-        # Пытаемся восстановить username из таких случаев.
-        if not username:
-            try:
-                if request.query and len(request.query) == 1:
-                    only_key = next(iter(request.query.keys()))
-                    if isinstance(only_key, str) and only_key.startswith("username="):
-                        username = only_key.split("=", 1)[1].strip()
-            except Exception:
-                pass
-
-        if not username:
-            # Второй вариант: query_string содержит "username%3Ddurov"
-            try:
-                from urllib.parse import unquote
-                qs = (request.query_string or "").strip()
-                decoded = unquote(qs)
-                if decoded.startswith("username="):
-                    username = decoded.split("=", 1)[1].strip()
-            except Exception:
-                pass
+        username = _get_username_from_request(request)
 
         if not username:
             return Response(
@@ -1332,7 +1345,19 @@ async def get_telegram_user_handler(request):
             )
         
         # Убираем @ если есть
-        clean_username = username.lstrip('@')
+        clean_username = username.lstrip('@').strip()
+        if not clean_username:
+            return Response(
+                text=json.dumps({'error': 'bad_request', 'message': 'username is required'}),
+                status=400,
+                content_type='application/json',
+                headers={
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                    'Access-Control-Allow-Headers': '*'
+                }
+            )
+        logger.info(f"API /api/telegram/user: username={clean_username!r}, telethon_connected={telethon_client is not None}")
         
         # 1) Пробуем через userbot (Telethon) — так можно «из всего Telegram»
         telethon_data = await lookup_user_via_telethon(clean_username)
