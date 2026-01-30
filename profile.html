@@ -11,6 +11,29 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <!-- TonConnect dApp SDK -->
     <script src="https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
+    <script>
+        // Инициализация TonConnect для реального подключения кошелька (не просто переход в приложение)
+        (function() {
+            if (typeof TonConnectSDK === 'undefined') return;
+            var manifestUrl = (window.location.origin || 'https://jetstoreapp.ru') + '/tonconnect-manifest.json';
+            window.tonConnectConnector = new TonConnectSDK.TonConnect({ manifestUrl: manifestUrl });
+            window.tonConnectConnector.restoreConnection().catch(function() {});
+            window.tonConnectConnector.onStatusChange(function(wallet) {
+                if (wallet && wallet.account) {
+                    try {
+                        localStorage.setItem('jetstore_tonkeeper_connected', 'true');
+                        localStorage.setItem('jetstore_tonkeeper_address', wallet.account.address);
+                        if (wallet.account.chain && wallet.account.chain !== '-239') {
+                            localStorage.setItem('jetstore_tonkeeper_balance', '0');
+                        }
+                    } catch (e) {}
+                    if (typeof window.updateTonkeeperButton === 'function') {
+                        window.updateTonkeeperButton();
+                    }
+                }
+            });
+        })();
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Дополнительные стили для профиля - Темная тема */
@@ -2416,20 +2439,50 @@
             }
         };
         
-        // Упрощённое подключение TonKeeper: надёжно открываем Tonkeeper,
-        // а статус/баланс читаем из localStorage, если их запишет бэкенд или скрипт Tonkeeper.
+        // Подключение TonKeeper через TonConnect: генерируем ссылку-запрос и открываем её.
+        // После подтверждения в TonKeeper кошелёк привяжется, при возврате в приложение restoreConnection подхватит связь.
         window.connectTonkeeper = function() {
-            const tg = window.Telegram?.WebApp;
-            const url = 'https://app.tonkeeper.com/ton-connect';
-            
-            if (typeof showNotification === 'function') {
-                showNotification('Открываем TonKeeper...', 'info');
+            var connector = window.tonConnectConnector;
+            if (!connector) {
+                if (typeof showNotification === 'function') {
+                    showNotification('TonConnect не загружен. Обновите страницу.', 'error');
+                }
+                return;
             }
-            
+            if (connector.connected) {
+                if (typeof showNotification === 'function') {
+                    showNotification('TonKeeper уже подключен', 'info');
+                }
+                if (typeof window.updateTonkeeperButton === 'function') window.updateTonkeeperButton();
+                return;
+            }
+            var walletSource = {
+                universalLink: 'https://app.tonkeeper.com/ton-connect',
+                bridgeUrl: 'https://bridge.tonapi.io/bridge'
+            };
+            var linkToOpen;
+            try {
+                linkToOpen = connector.connect(walletSource);
+            } catch (e) {
+                if (typeof showNotification === 'function') {
+                    showNotification('Ошибка подключения: ' + (e && e.message ? e.message : 'попробуйте позже'), 'error');
+                }
+                return;
+            }
+            if (!linkToOpen) {
+                if (typeof showNotification === 'function') {
+                    showNotification('Не удалось сформировать ссылку подключения', 'error');
+                }
+                return;
+            }
+            if (typeof showNotification === 'function') {
+                showNotification('Подтвердите подключение в TonKeeper и вернитесь в приложение', 'info');
+            }
+            var tg = window.Telegram && window.Telegram.WebApp;
             if (tg && typeof tg.openLink === 'function') {
-                tg.openLink(url);
+                tg.openLink(linkToOpen);
             } else {
-                window.open(url, '_blank');
+                window.open(linkToOpen, '_blank');
             }
         };
         

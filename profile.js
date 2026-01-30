@@ -226,8 +226,8 @@ function loadUserData() {
                 // Для нового пользователя устанавливаем начальный баланс
                 if (!userData.currencies) {
                     userData.currencies = {
-                        RUB: 1000,  // Начальный баланс для нового пользователя
-                        USDT: 10,
+                        RUB: 0,
+                        USDT: 0,
                         USD: 0,
                         EUR: 0
                     };

@@ -194,22 +194,19 @@ function initializeUserData() {
             // Для нового пользователя используем баланс из фиксированного ключа
             if (!window.userData.currencies) {
                 window.userData.currencies = {
-                    RUB: savedBalance || 1000,  // Используем сохраненный баланс или начальный
-                    USDT: 10,
+                    RUB: (savedBalance !== undefined && savedBalance !== null) ? savedBalance : 0,
+                    USDT: 0,
                     USD: 0,
                     EUR: 0
                 };
             } else {
-                // Обновляем баланс из фиксированного ключа
-                window.userData.currencies.RUB = savedBalance || window.userData.currencies.RUB || 1000;
+                window.userData.currencies.RUB = (savedBalance !== undefined && savedBalance !== null) ? savedBalance : (window.userData.currencies.RUB ?? 0);
             }
             
-            // Сохраняем начальный баланс в фиксированный ключ, если его нет
-            if (savedBalance === 0 && window.userData.currencies.RUB > 0) {
-                const db = window.Database || (typeof Database !== 'undefined' ? Database : null);
-                if (db && typeof db.saveBalanceFixed === 'function') {
-                    db.saveBalanceFixed('RUB', window.userData.currencies.RUB);
-                }
+            // Сохраняем начальный баланс в фиксированный ключ
+            const db = window.Database || (typeof Database !== 'undefined' ? Database : null);
+            if (db && typeof db.saveBalanceFixed === 'function' && (savedBalance === undefined || savedBalance === null)) {
+                db.saveBalanceFixed('RUB', window.userData.currencies.RUB ?? 0);
             }
             // Для нового пользователя устанавливаем дату регистрации
             if (!window.userData.registrationDate) {
@@ -840,11 +837,16 @@ function checkTelegramUser(inputId, previewId) {
         .then(async (res) => {
             if (!res.ok) {
                 let details = '';
+                let serverMessage = '';
                 try {
                     const j = await res.json();
                     details = j?.details || j?.message || '';
+                    serverMessage = j?.message || details;
                 } catch {}
-                throw new Error(`api_error:${res.status}:${details}`);
+                const err = new Error(`api_error:${res.status}:${details}`);
+                err.status = res.status;
+                err.serverMessage = serverMessage;
+                throw err;
             }
             return res.json();
         })
@@ -866,8 +868,8 @@ function checkTelegramUser(inputId, previewId) {
         })
         .catch((err) => {
             console.warn('Telegram user lookup failed:', url, err);
+            const msg = err.serverMessage || (err.status === 404 ? 'Пользователь не найден. Убедитесь, что указан верный @username.' : (err.status === 500 ? 'Ошибка сервера. Попробуйте позже.' : 'Не удалось получить данные пользователя. Проверьте подключение и адрес API.'));
             if (inputId === 'starsRecipient') {
-                // Не ломаем UX: показываем введённый @username с плейсхолдер-аватаркой
                 setStarsRecipientState('found', {
                     avatar: '',
                     firstName: '',
@@ -875,11 +877,9 @@ function checkTelegramUser(inputId, previewId) {
                     username: cleanUsername
                 });
                 if (typeof showStoreNotification === 'function') {
-                    showStoreNotification('Не удалось получить данные пользователя (API недоступен или ошибка).', 'error');
+                    showStoreNotification(msg, 'error');
                 }
             } else {
-                const preview = document.getElementById(previewId);
-                // Для Premium также показываем хотя бы ник (если проверить не удалось)
                 showUserPreview(previewId, {
                     avatar: '',
                     firstName: '',
@@ -887,7 +887,7 @@ function checkTelegramUser(inputId, previewId) {
                     username: cleanUsername
                 });
                 if (typeof showStoreNotification === 'function') {
-                    showStoreNotification('Не удалось получить данные пользователя (API недоступен или ошибка).', 'error');
+                    showStoreNotification(msg, 'error');
                 }
             }
         });
