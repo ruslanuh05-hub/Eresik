@@ -1,0 +1,3024 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>JET - официальный бот</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- TonConnect dApp SDK -->
+    <script src="https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Дополнительные стили для профиля - Темная тема */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000000;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        .profile-container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 0;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #0a0e27 0%, #1a1a3e 30%, #16213e 60%, #0f3460 100%);
+            padding-bottom: 100px; /* место под фиксированную нижнюю панель */
+        }
+        
+        /* Шапка профиля */
+        .profile-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .logo-icon i {
+            color: #ffffff;
+            font-size: 1.5rem;
+            animation: rocketTakeoff 2s ease-in-out infinite;
+            transform-origin: center bottom;
+        }
+        
+        @keyframes rocketTakeoff {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+            }
+            50% {
+                transform: translateY(-8px) rotate(-5deg);
+                opacity: 0.9;
+            }
+            100% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+            }
+        }
+        
+        .logo-icon svg path {
+            fill: #ffffff;
+        }
+        
+        .logo-text h1 {
+            color: #ffffff;
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin: 0;
+            line-height: 1.2;
+            letter-spacing: 0.5px;
+        }
+        
+        .logo-text p {
+            color: #00d4ff;
+            font-size: 0.75rem;
+            margin: 0;
+            line-height: 1.2;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .topup-btn-header {
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(76, 175, 80, 0.1) 100%);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            border-radius: 12px;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .topup-btn-header:hover {
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.3) 0%, rgba(76, 175, 80, 0.2) 100%);
+            transform: scale(1.02);
+        }
+        
+        .topup-btn-header:active {
+            transform: scale(0.98);
+        }
+        
+        .topup-btn-header i {
+            font-size: 1rem;
+        }
+        
+        .profile-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        @media (min-width: 768px) {
+            .profile-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        .profile-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            border: 1px solid #f0f0f0;
+        }
+        
+        .profile-card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* Карточка пользователя - улучшенная */
+        .user-card {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.9) 100%);
+            border-radius: 20px;
+            padding: 24px;
+            margin: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .user-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, rgba(0, 212, 255, 0.1) 50%, transparent 70%);
+            pointer-events: none;
+        }
+        
+        .user-avatar-wrapper {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .user-avatar {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: white;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.5);
+            border: 3px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .online-indicator {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 16px;
+            height: 16px;
+            background: #00d4ff;
+            border: 3px solid #000000;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+            animation: pulse-online 2s infinite;
+        }
+        
+        @keyframes pulse-online {
+            0%, 100% { box-shadow: 0 0 10px rgba(76, 175, 80, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(76, 175, 80, 0.8); }
+        }
+        
+        .user-info-main {
+            z-index: 1;
+            flex-grow: 1;
+        }
+        
+        .user-info-main h2 {
+            color: #ffffff;
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+            letter-spacing: 0.3px;
+        }
+        
+        .user-info-main p {
+            color: #00d4ff;
+            font-size: 0.95rem;
+            margin: 0;
+            font-weight: 500;
+        }
+        
+        /* Секция баланса - улучшенная */
+        .balance-section {
+            margin: 0 20px 20px 20px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.9) 100%);
+            border-radius: 20px;
+            padding: 24px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .balance-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #6c5ce7 0%, #00d4ff 50%, #6c5ce7 100%);
+        }
+        
+        .balance-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+        
+        .balance-amount-main {
+            color: #ffffff;
+            font-size: 2.8rem;
+            font-weight: 800;
+            margin: 0 0 24px 0;
+            text-shadow: 0 0 30px rgba(0, 212, 255, 0.4);
+            background: linear-gradient(135deg, #ffffff 0%, #00d4ff 50%, #40e0d0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .balance-actions-main {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn-deposit-main {
+            flex: 1;
+            background: linear-gradient(135deg, rgba(135, 206, 250, 0.4) 0%, rgba(176, 224, 230, 0.4) 50%, rgba(173, 216, 230, 0.4) 100%);
+            color: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 20px rgba(135, 206, 250, 0.2);
+            border: none;
+            border-radius: 14px;
+            padding: 16px;
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-deposit-main::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .btn-deposit-main:hover::before {
+            left: 100%;
+        }
+        
+        .btn-deposit-main:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(135, 206, 250, 0.3);
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        .btn-deposit-main:active {
+            transform: translateY(-1px);
+        }
+        
+        @keyframes buttonFloat {
+            0%, 100% {
+                transform: translateY(-3px);
+            }
+            50% {
+                transform: translateY(-6px);
+            }
+        }
+        
+        .btn-promo-main {
+            flex: 1;
+            background: rgba(135, 206, 250, 0.15);
+            color: rgba(173, 216, 230, 0.9);
+            border: 1px solid rgba(135, 206, 250, 0.25);
+            border-radius: 14px;
+            padding: 16px;
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-promo-main:hover {
+            background: rgba(135, 206, 250, 0.25);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(135, 206, 250, 0.15);
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        .btn-promo-main:active {
+            transform: translateY(-1px);
+        }
+        
+        /* Статистика */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 0 20px 20px 20px;
+        }
+        
+        .stat-card {
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .stat-value {
+            color: #ffffff;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            color: #888;
+            font-size: 0.85rem;
+        }
+        
+        /* TonKeeper Button */
+        .tonkeeper-section {
+            margin: 0 20px 20px 20px;
+        }
+        
+        .btn-tonkeeper {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 18px 20px;
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-tonkeeper::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .btn-tonkeeper:hover::before {
+            left: 100%;
+        }
+        
+        .btn-tonkeeper:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(0, 212, 255, 0.6);
+        }
+        
+        .btn-tonkeeper:active {
+            transform: translateY(0);
+        }
+        
+        .tonkeeper-icon {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .tonkeeper-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            flex-grow: 1;
+        }
+        
+        .tonkeeper-title {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+        
+        .tonkeeper-subtitle {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.85rem;
+            margin-top: 2px;
+        }
+        
+        .tonkeeper-arrow {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        
+        /* User Gifts Button */
+        .user-gifts-section {
+            margin: 0 20px 20px 20px;
+        }
+        
+        .btn-user-gifts {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 18px 20px;
+            background: linear-gradient(135deg, rgba(135, 206, 250, 0.35) 0%, rgba(173, 216, 230, 0.3) 50%, rgba(176, 224, 230, 0.35) 100%);
+            border: 1px solid rgba(135, 206, 250, 0.3);
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(135, 206, 250, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-user-gifts::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .btn-user-gifts:hover::before {
+            left: 100%;
+        }
+        
+        .btn-user-gifts:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(135, 206, 250, 0.3);
+        }
+        
+        .btn-user-gifts:active {
+            transform: translateY(0);
+        }
+        
+        .user-gifts-icon {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .user-gifts-icon i {
+            color: #ffffff;
+            font-size: 1.5rem;
+        }
+        
+        .user-gifts-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            flex-grow: 1;
+        }
+        
+        .user-gifts-title {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+        
+        .user-gifts-subtitle {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.85rem;
+            margin-top: 2px;
+        }
+        
+        .user-gifts-arrow {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        
+        .balance-display {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .balance-amount {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        @media (max-width: 480px) {
+            .balance-amount {
+                font-size: 2rem;
+            }
+        }
+        
+        .balance-currency {
+            color: #666;
+            font-size: 1.2rem;
+        }
+        
+        .currency-selector {
+            margin: 20px 0;
+        }
+        
+        .currency-selector select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .balance-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        @media (min-width: 480px) {
+            .balance-actions {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        .balance-btn {
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+        
+        .balance-btn.deposit {
+            background: linear-gradient(135deg, rgba(135, 206, 250, 0.4) 0%, rgba(176, 224, 230, 0.4) 100%);
+            color: rgba(255, 255, 255, 0.95);
+        }
+        
+        .balance-btn.promo {
+            background: linear-gradient(135deg, rgba(135, 206, 250, 0.4) 0%, rgba(176, 224, 230, 0.4) 100%);
+            color: rgba(255, 255, 255, 0.95);
+        }
+        
+        .balance-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .orders-list {
+            max-height: 300px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .order-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.3s;
+            flex-wrap: wrap;
+        }
+        
+        @media (max-width: 480px) {
+            .order-item {
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
+            }
+        }
+        
+        .order-item:hover {
+            background: #f9f9f9;
+        }
+        
+        .order-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
+            margin-right: 15px;
+        }
+        
+        @media (max-width: 480px) {
+            .order-icon {
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+        }
+        
+        .order-details {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        @media (max-width: 480px) {
+            .order-details {
+                width: 100%;
+            }
+        }
+        
+        .order-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 1rem;
+        }
+        
+        .order-date {
+            font-size: 0.85rem;
+            color: #888;
+        }
+        
+        .order-status {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        
+        .order-status.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .order-price {
+            font-weight: bold;
+            color: #00d4ff;
+            font-size: 1.1rem;
+        }
+        
+        @media (max-width: 480px) {
+            .order-price {
+                margin-top: 10px;
+            }
+        }
+        
+        .info-links {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .info-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            text-decoration: none;
+            color: #ffffff;
+            transition: all 0.3s;
+            border: 1px solid rgba(0, 212, 255, 0.1);
+        }
+        
+        .info-link:hover {
+            background: rgba(0, 0, 0, 1);
+            transform: translateX(5px);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+        
+        .info-link i:first-child {
+            width: 30px;
+            font-size: 1.2rem;
+            color: #00d4ff;
+        }
+        
+        .info-link span {
+            flex: 1;
+            margin-left: 10px;
+            font-size: 0.95rem;
+        }
+        
+        .info-link i:last-child {
+            color: #888;
+        }
+        
+        /* Стили для реферальной программы (НОВЫЙ БЛОК) */
+        .referral-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 480px) {
+            .referral-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .stat-item-referral {
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(0, 212, 255, 0.1);
+        }
+        
+        .stat-value-referral {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #00d4ff;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label-referral {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .referral-link-container {
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        
+        .referral-link {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            padding: 12px 15px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
+            margin-bottom: 10px;
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+        }
+        
+        .copy-referral-btn {
+            width: 100%;
+            padding: 10px;
+            background: white;
+            color: #f5576c;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        
+        .copy-referral-btn:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+        }
+        
+        .referral-info {
+            background: #e7f3ff;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 0.85rem;
+            color: #0066cc;
+            line-height: 1.4;
+            margin-top: 10px;
+        }
+        
+        .referral-info i {
+            margin-right: 8px;
+        }
+        
+        .referral-rules {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        
+        .referral-rules h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+        
+        .referral-rules ul {
+            padding-left: 20px;
+            margin: 0;
+            color: #666;
+            font-size: 0.85rem;
+        }
+        
+        .referral-rules li {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        
+        /* Попапы */
+        .popup {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+        }
+        
+        .popup.active {
+            display: flex;
+        }
+        
+        .popup-content {
+            background: rgba(0, 0, 0, 0.98);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 400px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        .popup-header {
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .popup-header h3 {
+            font-size: 1.3rem;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+        
+        .popup-body {
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.95);
+            color: #ffffff;
+        }
+        
+        .popup-body h3,
+        .popup-body p,
+        .popup-body span {
+            color: #ffffff;
+        }
+        
+        .deposit-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 480px) {
+            .deposit-options {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .deposit-option {
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #ffffff;
+            border: 2px solid transparent;
+        }
+        
+        .deposit-option span {
+            color: #ffffff;
+            display: block;
+        }
+        
+        .deposit-option:hover {
+            background: linear-gradient(135deg, rgba(135, 206, 250, 0.4) 0%, rgba(176, 224, 230, 0.4) 100%);
+            color: rgba(255, 255, 255, 0.95);
+            transform: scale(1.05);
+        }
+        
+        .deposit-option:hover span {
+            color: white;
+        }
+        
+        .deposit-option.selected {
+            background: linear-gradient(135deg, rgba(135, 206, 250, 0.4) 0%, rgba(176, 224, 230, 0.4) 100%);
+            color: rgba(255, 255, 255, 0.95);
+            border: 2px solid rgba(135, 206, 250, 0.6);
+            transform: scale(1.05);
+        }
+        
+        .deposit-option.selected span {
+            color: white;
+        }
+        
+        /* Новые стили для методов оплаты */
+        .deposit-subtitle {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .payment-methods {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .payment-method-btn {
+            flex: 1;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.9) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .payment-method-btn:hover:not(.disabled) {
+            transform: translateY(-3px);
+            border-color: rgba(0, 212, 255, 0.5);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+        }
+        
+        .payment-method-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .payment-method-btn.usdt {
+            background: linear-gradient(135deg, #1a2e1a 0%, #162a16 100%);
+            border-color: rgba(76, 175, 80, 0.3);
+        }
+        
+        .payment-method-btn.usdt:hover {
+            border-color: rgba(76, 175, 80, 0.6);
+            box-shadow: 0 8px 25px rgba(76, 175, 80, 0.3);
+        }
+        
+        .payment-method-btn.sbp {
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+        
+        .payment-method-btn.sbp:hover {
+            border-color: rgba(0, 212, 255, 0.6);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+        }
+        
+        .payment-method-btn.sbp.active {
+            border-color: rgba(0, 212, 255, 0.6);
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.3) 0%, rgba(0, 212, 255, 0.2) 100%);
+        }
+        
+        .payment-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        
+        .payment-icon.card {
+            background: linear-gradient(135deg, rgba(135, 206, 250, 0.4) 0%, rgba(176, 224, 230, 0.4) 100%);
+            color: rgba(255, 255, 255, 0.95);
+        }
+        
+        .payment-icon.sbp {
+            background: linear-gradient(135deg, rgba(135, 206, 250, 0.4) 0%, rgba(176, 224, 230, 0.4) 100%);
+            color: rgba(255, 255, 255, 0.95);
+        }
+        
+        .payment-icon.usdt {
+            background: linear-gradient(135deg, rgba(135, 206, 250, 0.4) 0%, rgba(176, 224, 230, 0.4) 100%);
+            color: rgba(255, 255, 255, 0.95);
+        }
+        
+        .payment-name {
+            color: #ffffff;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        
+        .payment-badge {
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .payment-badge.active {
+            background: rgba(76, 175, 80, 0.2);
+            color: #00d4ff;
+        }
+        
+        .usdt-rate-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+            justify-content: center;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        
+        .usdt-rate-info strong {
+            color: #00d4ff;
+        }
+        
+        /* USDT попап стили */
+        .usdt-input-section {
+            margin-bottom: 20px;
+        }
+        
+        .usdt-label {
+            display: block;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+        
+        .usdt-input-wrapper {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 12px;
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            overflow: hidden;
+        }
+        
+        .usdt-input-wrapper input {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            background: transparent;
+            color: #ffffff;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .usdt-input-wrapper input:focus {
+            outline: none;
+        }
+        
+        .usdt-currency {
+            padding: 16px;
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .usdt-conversion {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            color: #ffffff;
+        }
+        
+        .usdt-conversion i {
+            color: #00d4ff;
+        }
+        
+        .usdt-conversion strong {
+            color: #00d4ff;
+        }
+        
+        .usdt-pay-amount {
+            text-align: center;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin-bottom: 16px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .usdt-pay-amount strong {
+            color: #00d4ff;
+            font-size: 1.1rem;
+        }
+        
+        .btn-primary.usdt-btn {
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-primary.usdt-btn:hover {
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.5);
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        .custom-amount {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .custom-amount input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid rgba(0, 212, 255, 0.2);
+            border-radius: 10px;
+            font-size: 1rem;
+            background: rgba(0, 0, 0, 0.8);
+            color: #ffffff;
+        }
+        
+        .custom-amount input::placeholder {
+            color: #888;
+        }
+        
+        .custom-amount input:focus {
+            outline: none;
+            border-color: #00d4ff;
+            background: rgba(0, 0, 0, 1);
+        }
+        
+        .custom-amount button {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        
+        /* Выдвижная панель промокода */
+        .promo-panel {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, margin-top 0.3s ease-out, opacity 0.3s ease-out;
+            opacity: 0;
+            margin-top: 0;
+        }
+        
+        .promo-panel.active {
+            max-height: 200px;
+            opacity: 1;
+            margin-top: 16px;
+        }
+        
+        .promo-panel-content {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .promo-code-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            font-size: 1rem;
+            background: rgba(0, 0, 0, 0.8);
+            color: rgba(255, 255, 255, 0.7);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+        
+        .promo-code-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .promo-code-input:focus {
+            outline: none;
+            background: rgba(0, 0, 0, 0.95);
+            color: #ffffff;
+            border-color: rgba(0, 212, 255, 0.4);
+        }
+        
+        .promo-apply-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(0, 0, 0, 0.8);
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .promo-apply-btn:not(:disabled) {
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 100%);
+            color: #ffffff;
+            cursor: pointer;
+        }
+        
+        .promo-apply-btn:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 212, 255, 0.4);
+        }
+        
+        .promo-apply-btn:disabled {
+            cursor: not-allowed;
+        }
+        
+        /* Анимация кнопки промокода при активации */
+        .btn-promo-main.active {
+            background: rgba(255, 193, 7, 0.2);
+            border-color: rgba(255, 193, 7, 0.5);
+        }
+        
+        .popup-footer {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 20px;
+            border-top: 1px solid #2a2a2a;
+        }
+        
+        @media (min-width: 480px) {
+            .popup-footer {
+                flex-direction: row;
+            }
+        }
+        
+        .btn-primary, .btn-secondary {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(135, 206, 250, 0.4) 0%, rgba(176, 224, 230, 0.4) 50%, rgba(173, 216, 230, 0.4) 100%);
+            color: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 15px rgba(135, 206, 250, 0.2);
+        }
+        
+        .btn-secondary {
+            background: rgba(0, 0, 0, 0.8);
+            color: #ffffff;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(135, 206, 250, 0.3);
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(0, 0, 0, 1);
+            border-color: rgba(0, 212, 255, 0.4);
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #888;
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            color: #00d4ff;
+            margin-bottom: 15px;
+        }
+        
+        .empty-state p {
+            color: #888;
+            margin-top: 10px;
+        }
+        
+        .empty-state h3 {
+            color: #ffffff;
+            margin: 10px 0;
+            font-size: 1.2rem;
+        }
+        
+        .go-to-shop-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            text-decoration: none;
+            margin-top: 20px;
+            transition: all 0.3s;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        
+        .go-to-shop-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 212, 255, 0.4);
+        }
+        
+        .go-to-shop-btn i {
+            font-size: 1.1rem;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #00d4ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Уведомления для мобильных */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            left: 20px;
+            background: #00d4ff;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 9999;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .notification.error {
+            background: #ff4757;
+        }
+        
+        .notification.info {
+            background: #2196F3;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        /* Секция информации - улучшенная */
+        .info-section {
+            margin: 0 20px 20px 20px;
+        }
+        
+        .info-item {
+            background: linear-gradient(135deg, #000000 0%, #0a0a0a 100%);
+            border-radius: 16px;
+            padding: 18px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .info-item:hover {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.9) 100%);
+            transform: translateX(5px);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+        
+        .info-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .info-icon.purple {
+            background: linear-gradient(135deg, rgba(135, 206, 250, 0.4) 0%, rgba(176, 224, 230, 0.4) 50%, rgba(173, 216, 230, 0.4) 100%);
+            color: rgba(255, 255, 255, 0.95);
+        }
+        
+        .info-icon.orange {
+            background: linear-gradient(135deg, rgba(135, 206, 250, 0.4) 0%, rgba(176, 224, 230, 0.4) 100%);
+            color: rgba(255, 255, 255, 0.95);
+        }
+        
+        .info-text {
+            flex: 1;
+            color: #ffffff;
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+        
+        .info-text-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .info-subtext {
+            color: #00d4ff;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .info-arrow {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 1rem;
+            transition: transform 0.3s ease, color 0.3s ease;
+        }
+        
+        .info-item:hover .info-arrow {
+            color: #00d4ff;
+            transform: translateX(3px);
+        }
+        
+        .referral-item {
+            margin-top: 12px;
+            background: linear-gradient(135deg, rgba(255, 149, 0, 0.1) 0%, rgba(255, 107, 0, 0.05) 100%);
+            border: 1px solid rgba(255, 149, 0, 0.2);
+        }
+        
+        .referral-item:hover {
+            background: linear-gradient(135deg, rgba(255, 149, 0, 0.15) 0%, rgba(255, 107, 0, 0.1) 100%);
+            border-color: rgba(255, 149, 0, 0.3);
+        }
+        
+        /* Вкладки - улучшенные */
+        .tabs-container {
+            display: flex;
+            margin: 0 20px 20px 20px;
+            gap: 6px;
+            background: linear-gradient(135deg, #000000 0%, #0a0a0a 100%);
+            border-radius: 16px;
+            padding: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            padding: 14px 10px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-btn:hover:not(.active) {
+            color: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.05);
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        .tab-btn.active {
+            background: linear-gradient(135deg, rgba(135, 206, 250, 0.4) 0%, rgba(176, 224, 230, 0.4) 100%);
+            color: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 20px rgba(135, 206, 250, 0.25);
+        }
+        
+        /* Контент вкладок */
+        .tab-content {
+            margin: 0 20px 20px 20px;
+        }
+        
+        .tab-pane {
+            display: none;
+        }
+        
+        .tab-pane.active {
+            display: block;
+        }
+        
+        .orders-list {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 16px;
+            min-height: 200px;
+        }
+        
+        /* Нижняя навигация - закреплена поверх всего */
+        .profile-nav {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0;
+            right: 0;
+            width: 100%;
+            background: rgba(10, 14, 39, 0.25);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0 max(20px, env(safe-area-inset-bottom, 20px)) 0;
+            border-top: 1px solid rgba(0, 212, 255, 0.15);
+            z-index: 9999;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+            /* Исправление для клавиатуры - не поднимается при открытии */
+            transform: none !important;
+            will-change: auto;
+        }
+        
+        /* Предотвращение изменения позиции при открытии клавиатуры */
+        @supports (padding: max(0px)) {
+            .profile-nav {
+                padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
+            }
+        }
+        
+        /* Дополнительная защита от изменения позиции */
+        body:has(input:focus) .profile-nav,
+        body:has(textarea:focus) .profile-nav {
+            position: fixed !important;
+            bottom: 0 !important;
+            transform: none !important;
+        }
+        
+        .profile-nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            border: none;
+            padding: 8px 16px;
+            color: rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.7rem;
+            flex: 1;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+        
+        .profile-nav-btn:hover:not(.active) {
+            color: rgba(255, 255, 255, 0.7);
+            animation: navButtonFloat 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes navButtonFloat {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-3px);
+            }
+        }
+        
+        .profile-nav-btn i {
+            font-size: 1.4rem;
+        }
+        
+        .profile-nav-btn.active {
+            color: #00d4ff;
+        }
+        
+        .profile-nav-btn.active .nav-icon-wrapper {
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
+            border-radius: 12px;
+            padding: 8px;
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.5);
+        }
+        
+        .profile-nav-btn.active .nav-icon-wrapper i {
+            color: #ffffff;
+        }
+        
+        .nav-icon-wrapper {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        /* Мобильная оптимизация */
+        @media (max-width: 768px) {
+            .profile-container {
+                padding-bottom: 80px;
+            }
+            
+            .profile-header-top {
+                padding: 15px;
+            }
+            
+            .logo-text h1 {
+                font-size: 1.3rem;
+            }
+            
+            .logo-text p {
+                font-size: 0.8rem;
+            }
+            
+            .user-card {
+                margin: 15px;
+                padding: 16px;
+            }
+            
+            .balance-section {
+                margin: 0 15px 15px 15px;
+            }
+            
+            .balance-amount-main {
+                font-size: 2rem;
+            }
+            
+            .stats-grid {
+                margin: 0 15px 15px 15px;
+                gap: 10px;
+            }
+            
+            .stat-card {
+                padding: 12px;
+            }
+            
+            .stat-value {
+                font-size: 1.3rem;
+            }
+            
+            .info-section {
+                margin: 0 15px 15px 15px;
+            }
+            
+            .tabs-container {
+                margin: 0 15px 15px 15px;
+            }
+            
+            .tab-content {
+                margin: 0 15px 15px 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .profile-container {
+                padding-bottom: 70px;
+            }
+            
+            .profile-header-top {
+                padding: 12px;
+            }
+            
+            .logo-icon {
+                width: 28px;
+                height: 28px;
+            }
+            
+            .logo-text h1 {
+                font-size: 1.2rem;
+            }
+            
+            .logo-text p {
+                font-size: 0.75rem;
+            }
+            
+            .topup-btn-header {
+                padding: 8px 12px;
+                font-size: 0.9rem;
+            }
+            
+            .user-card {
+                margin: 12px;
+                padding: 14px;
+            }
+            
+            .user-avatar {
+                width: 50px;
+                height: 50px;
+                font-size: 1.3rem;
+            }
+            
+            .user-info-main h2 {
+                font-size: 1.1rem;
+            }
+            
+            .user-info-main p {
+                font-size: 0.85rem;
+            }
+            
+            .balance-section {
+                margin: 0 12px 12px 12px;
+            }
+            
+            .balance-label {
+                font-size: 0.85rem;
+            }
+            
+            .balance-amount-main {
+                font-size: 1.8rem;
+            }
+            
+            .balance-actions-main {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .btn-deposit-main,
+            .btn-promo-main {
+                padding: 12px;
+                font-size: 0.95rem;
+            }
+            
+            .stats-grid {
+                margin: 0 12px 12px 12px;
+                gap: 8px;
+            }
+            
+            .stat-card {
+                padding: 10px;
+            }
+            
+            .stat-value {
+                font-size: 1.1rem;
+            }
+            
+            .stat-label {
+                font-size: 0.8rem;
+            }
+            
+            .info-section {
+                margin: 0 12px 12px 12px;
+            }
+            
+            .info-item {
+                padding: 14px;
+            }
+            
+            .info-icon {
+                width: 36px;
+                height: 36px;
+                font-size: 1.1rem;
+            }
+            
+            .info-text {
+                font-size: 0.95rem;
+            }
+            
+            .tabs-container {
+                margin: 0 12px 12px 12px;
+                padding: 3px;
+            }
+            
+            .tab-btn {
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+            
+            .tab-content {
+                margin: 0 12px 12px 12px;
+            }
+            
+            .popup-content {
+                max-width: 95%;
+                margin: 10px;
+            }
+            
+            .deposit-options {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            
+            .deposit-option {
+                padding: 12px;
+                font-size: 1rem;
+            }
+            
+            .custom-amount {
+                flex-direction: column;
+            }
+            
+            .custom-amount button {
+                width: 100%;
+            }
+        }
+        
+        /* Оптимизация для очень маленьких экранов */
+        @media (max-width: 360px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .deposit-options {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Улучшенная прокрутка для iOS */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+        }
+        
+        input, select, textarea, button {
+            font-size: 16px; /* Предотвращает масштабирование на iOS */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+        
+        /* Улучшенное поведение касаний */
+        .balance-btn, .btn-primary, .btn-secondary, .deposit-option, .info-link,
+        .btn-deposit-main, .btn-promo-main, .tab-btn, .profile-nav-btn {
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        /* Плавная прокрутка */
+        html {
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+        }
+        
+        /* Оптимизация для производительности на мобильных (БЕЗ profile-container: transform ломает position:fixed у нижней панели) */
+        .user-card,
+        .stat-card,
+        .info-item,
+        .deposit-option {
+            will-change: transform;
+            transform: translateZ(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="profile-container">
+        <!-- Шапка с логотипом Kupol -->
+        <header class="profile-header-top">
+            <div class="header-left">
+                <div class="logo-icon">
+                    <i class="fas fa-rocket"></i>
+        </div>
+                <div class="logo-text">
+                    <h1>JET</h1>
+                    <p>официальный бот</p>
+                </div>
+            </div>
+            <button class="topup-btn-header" onclick="showDepositPopup()">
+                <i class="fas fa-plus" style="color: #00d4ff;"></i>
+                <span id="headerBalance">0 ₽</span>
+            </button>
+        </header>
+        
+        <!-- Основной контент -->
+        <div class="profile-content">
+            <!-- Карточка пользователя -->
+            <div class="user-card">
+                <div class="user-avatar-wrapper">
+                    <div class="user-avatar" id="profileAvatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="online-indicator"></div>
+                </div>
+                <div class="user-info-main">
+                    <h2 id="profileName">Загрузка...</h2>
+                        <p id="profileUsername">@username</p>
+                    </div>
+                </div>
+            
+            <!-- Секция баланса -->
+            <div class="balance-section">
+                <p class="balance-label">Доступный баланс</p>
+                <p class="balance-amount-main" id="profileBalance">0 ₽</p>
+                <div class="balance-actions-main">
+                    <button class="btn-deposit-main" onclick="showDepositPopup()">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>Пополнить</span>
+                    </button>
+                    <button class="btn-promo-main" onclick="togglePromoPanel()">
+                        <i class="fas fa-gift"></i>
+                        <span>Промокод</span>
+                    </button>
+                </div>
+                
+                <!-- Выдвижная панель промокода -->
+                <div id="promoPanel" class="promo-panel">
+                    <div class="promo-panel-content">
+                        <input type="text" id="promoCode" class="promo-code-input" placeholder="ВВЕДИТЕ ПРОМОКОД" maxlength="20">
+                        <button class="promo-apply-btn" id="promoApplyBtn" onclick="activatePromoCode()" disabled>
+                            Применить
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Кнопка TonKeeper -->
+            <div class="tonkeeper-section">
+                <button class="btn-tonkeeper" onclick="connectTonkeeper()">
+                    <div class="tonkeeper-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M2 17L12 22L22 17" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M2 12L12 17L22 12" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        </div>
+                    <div class="tonkeeper-text">
+                        <span class="tonkeeper-title">Подключить TonKeeper</span>
+                        <span class="tonkeeper-subtitle">Криптокошелёк для TON</span>
+                    </div>
+                    <i class="fas fa-chevron-right tonkeeper-arrow"></i>
+                </button>
+            </div>
+            
+            <!-- Кнопка Мои подарки -->
+            <div class="user-gifts-section">
+                <button class="btn-user-gifts" onclick="goToUserGifts()">
+                    <div class="user-gifts-icon">
+                        <i class="fas fa-gift"></i>
+                    </div>
+                    <div class="user-gifts-text">
+                        <span class="user-gifts-title">Ваши подарки</span>
+                        <span class="user-gifts-subtitle">Управление NFT подарками</span>
+                    </div>
+                    <i class="fas fa-chevron-right user-gifts-arrow"></i>
+                </button>
+            </div>
+            
+            <!-- Секция информации и реферальная программа -->
+            <div class="info-section">
+                <div class="info-item" onclick="showInfo('about')">
+                    <div class="info-icon purple">
+                        <i class="fas fa-info-circle"></i>
+                </div>
+                    <span class="info-text">Информация</span>
+                    <i class="fas fa-chevron-right info-arrow"></i>
+                </div>
+            
+            <!-- Вкладки -->
+            <div class="tabs-container">
+                <button class="tab-btn active" onclick="switchTab('purchases')">Мои покупки</button>
+                <button class="tab-btn" onclick="switchTab('favorites')">Избранное</button>
+                <button class="tab-btn" onclick="switchTab('transactions')">Транзакции</button>
+            </div>
+            
+            <!-- Контент вкладок -->
+            <div class="tab-content">
+                <div id="purchasesTab" class="tab-pane active">
+                    <div style="padding: 16px 20px; color: rgba(255,255,255,0.7); font-size: 0.9rem; text-align: center; margin-bottom: 10px;">
+                        ваши покупки в нашем магазине
+                    </div>
+                    <div class="orders-list" id="purchasesList">
+                        <div class="empty-state">
+                            <i class="fas fa-shopping-bag"></i>
+                            <p>Пока нет покупок</p>
+                    </div>
+                </div>
+                    </div>
+                <div id="favoritesTab" class="tab-pane">
+                    <div class="empty-state">
+                        <i class="fas fa-heart"></i>
+                        <p>Пока нет избранного</p>
+                </div>
+                </div>
+                <div id="transactionsTab" class="tab-pane">
+                    <div class="empty-state">
+                        <i class="fas fa-exchange-alt"></i>
+                        <p>Пока нет транзакций</p>
+                </div>
+            </div>
+                </div>
+            </div>
+        </div>
+        
+    <!-- Нижняя навигация (вне profile-container, чтобы position:fixed работал) -->
+    <nav class="profile-nav">
+        <button class="profile-nav-btn" onclick="window.location.href='index.html'">
+            <div class="nav-icon-wrapper">
+                <i class="fas fa-home"></i>
+            </div>
+            <span>Главная</span>
+        </button>
+        <button class="profile-nav-btn" onclick="goToReferralFromProfile()">
+            <div class="nav-icon-wrapper">
+                <i class="fas fa-coins"></i>
+            </div>
+            <span>Заработать</span>
+        </button>
+        <button class="profile-nav-btn" onclick="window.location.href='assets.html'">
+            <div class="nav-icon-wrapper">
+                <i class="fab fa-telegram-plane"></i>
+            </div>
+            <span>Активы</span>
+        </button>
+        <button class="profile-nav-btn active">
+            <div class="nav-icon-wrapper">
+                <i class="fas fa-user"></i>
+            </div>
+            <span>Профиль</span>
+        </button>
+    </nav>
+    
+    <!-- Попап детального просмотра покупки -->
+    <div id="purchaseDetailsPopup" class="popup">
+        <div class="popup-content steam-popup-content">
+            <div class="steam-popup-header">
+                <button class="steam-back-btn" onclick="closePurchaseDetails()">
+                    <i class="fas fa-chevron-left"></i>
+            </button>
+                <h2 class="steam-popup-title">Детали покупки</h2>
+            </div>
+            
+            <div class="steam-popup-body">
+                <div style="padding: 20px;">
+                    <div style="margin-bottom: 20px;">
+                        <div style="color: rgba(255,255,255,0.6); font-size: 0.9rem; margin-bottom: 8px;">Товар</div>
+                        <div id="purchaseDetailsName" style="color: #ffffff; font-size: 1.3rem; font-weight: 700;"></div>
+                    </div>
+                    
+                    <div id="purchaseDetailsGameWrapper" style="margin-bottom: 20px; display: none;">
+                        <div style="color: rgba(255,255,255,0.6); font-size: 0.9rem; margin-bottom: 8px;">Игра</div>
+                        <div id="purchaseDetailsGame" style="color: #00d4ff; font-size: 1.1rem; font-weight: 600;"></div>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <div style="color: rgba(255,255,255,0.6); font-size: 0.9rem; margin-bottom: 8px;">Дата</div>
+                        <div id="purchaseDetailsDate" style="color: rgba(255,255,255,0.8); font-size: 1rem;"></div>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <div style="color: rgba(255,255,255,0.6); font-size: 0.9rem; margin-bottom: 8px;">Статус</div>
+                        <div id="purchaseDetailsStatus" style="display: inline-block; padding: 8px 16px; border-radius: 12px; font-size: 1rem; font-weight: 600;"></div>
+                    </div>
+                    
+                    <div style="padding-top: 20px; border-top: 1px solid rgba(0,212,255,0.2);">
+                        <div style="color: rgba(255,255,255,0.6); font-size: 0.9rem; margin-bottom: 8px;">Цена</div>
+                        <div id="purchaseDetailsPrice" style="color: #00d4ff; font-size: 1.8rem; font-weight: 700;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Попап для пополнения баланса -->
+    <div id="depositPopup" class="popup">
+        <div class="popup-content">
+            <div class="popup-header">
+                <h3>Пополнение баланса</h3>
+                <button class="close-btn" onclick="closeDepositPopup()">×</button>
+            </div>
+            <div class="popup-body">
+                <p class="deposit-subtitle">Выберите способ оплаты</p>
+                <div class="payment-methods">
+                    <button class="payment-method-btn usdt" onclick="showUsdtDeposit()">
+                        <div class="payment-icon usdt">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <span class="payment-name">CryptoBot</span>
+                        <span class="payment-badge active">Доступно</span>
+                    </button>
+                </div>
+                <div class="usdt-rate-info">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Курс USDT: <strong id="usdtRateDisplay">80</strong> ₽</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Попап для USDT пополнения -->
+    <div id="usdtDepositPopup" class="popup">
+        <div class="popup-content">
+            <div class="popup-header">
+                <h3>Пополнение через USDT</h3>
+                <button class="close-btn" onclick="closeUsdtPopup()">×</button>
+            </div>
+            <div class="popup-body">
+                <div class="usdt-input-section">
+                    <label class="usdt-label">Сумма в рублях</label>
+                    <div class="usdt-input-wrapper">
+                        <input type="number" id="usdtAmountRub" placeholder="1000" min="100" max="100000" oninput="updateUsdtConversion()">
+                        <span class="usdt-currency">₽</span>
+                    </div>
+                </div>
+                <div class="usdt-conversion">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>Вы получите: <strong id="usdtAmountResult">0</strong> ₽ на баланс</span>
+                </div>
+                <div class="usdt-pay-amount">
+                    <span>К оплате: <strong id="usdtPayAmount">0</strong> USDT</span>
+                </div>
+                <div class="promo-info">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Минимум: 100 ₽ (~1.25 USDT). Оплата через @CryptoBot</span>
+                </div>
+            </div>
+            <div class="popup-footer">
+                <button class="btn-secondary" onclick="closeUsdtPopup()">Отмена</button>
+                <button class="btn-primary usdt-btn" onclick="processUsdtDeposit()">
+                    <i class="fab fa-telegram-plane"></i>
+                    Оплатить через CryptoBot
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Попап для СБП пополнения -->
+    <div id="sbpDepositPopup" class="popup">
+        <div class="popup-content">
+            <div class="popup-header">
+                <h3>Пополнение через СБП</h3>
+                <button class="close-btn" onclick="closeSbpPopup()">×</button>
+            </div>
+            <div class="popup-body">
+                <div class="usdt-input-section">
+                    <label class="usdt-label">Сумма в рублях</label>
+                    <input type="number" id="sbpAmount" placeholder="Введите сумму" min="1" oninput="updateSbpAmount()">
+                </div>
+                <div class="promo-info">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Минимум: 1 ₽. Сумма будет зачислена на баланс сразу</span>
+                </div>
+            </div>
+            <div class="popup-footer">
+                <button class="btn-secondary" onclick="closeSbpPopup()">Отмена</button>
+                <button class="btn-primary" onclick="processSbpDeposit()">
+                    <i class="fas fa-mobile-alt"></i>
+                    Пополнить баланс
+                </button>
+            </div>
+        </div>
+    </div>
+    
+
+    <script src="config.js"></script>
+    <script src="database.js"></script>
+    <script>
+        // Фиксация нижней навигации при открытии клавиатуры
+        (function() {
+            const nav = document.querySelector('.profile-nav');
+            if (nav) {
+                function fixNavPosition() {
+                    if (nav) {
+                        nav.style.position = 'fixed';
+                        nav.style.bottom = '0';
+                        nav.style.transform = 'none';
+                    }
+                }
+                
+                // Фиксируем позицию при фокусе на input/textarea
+                document.addEventListener('focusin', function(e) {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                        setTimeout(fixNavPosition, 100);
+                    }
+                });
+                
+                // Фиксируем при изменении viewport (открытие клавиатуры)
+                if (window.visualViewport) {
+                    window.visualViewport.addEventListener('resize', fixNavPosition);
+                }
+                
+                // Фиксируем при изменении размера окна
+                window.addEventListener('resize', fixNavPosition);
+                
+                // Периодическая проверка
+                setInterval(fixNavPosition, 500);
+            }
+        })();
+        
+        // Убеждаемся, что Database инициализирована перед загрузкой profile.js
+        if (window.Database && typeof window.Database.init === 'function') {
+            window.Database.init();
+            console.log('✅ Database инициализирована в profile.html');
+        } else {
+            console.error('❌ Database не найдена или init не доступен!');
+        }
+    </script>
+    <script src="profile.js"></script>
+    <script>
+        // Тестовая функция для проверки сохранения баланса
+        window.testBalanceSave = function(amount) {
+            console.log('🧪 ТЕСТ: Попытка сохранить баланс', amount);
+            
+            if (typeof Database !== 'undefined' && Database.saveBalanceFixed) {
+                const saved = Database.saveBalanceFixed('RUB', amount);
+                if (saved) {
+                    console.log('✅✅✅ ТЕСТ УСПЕШЕН: Баланс сохранен!');
+                    
+                    // Проверяем загрузку
+                    const loaded = Database.getBalanceFixed('RUB');
+                    console.log('✅ ТЕСТ: Загруженный баланс:', loaded);
+                    
+                    if (loaded === amount) {
+                        console.log('✅✅✅ ТЕСТ ПОЛНОСТЬЮ УСПЕШЕН: Сохранение и загрузка работают!');
+                        return true;
+                    } else {
+                        console.error('❌ ТЕСТ ПРОВАЛЕН: Загруженный баланс не совпадает!');
+                        return false;
+                    }
+                } else {
+                    console.error('❌ ТЕСТ ПРОВАЛЕН: Не удалось сохранить баланс!');
+                    return false;
+                }
+            } else {
+                console.error('❌ ТЕСТ ПРОВАЛЕН: Database или saveBalanceFixed не найдены!');
+                return false;
+            }
+        };
+        
+        // Показываем инструкции в консоли
+        console.log('%c📋 ИНСТРУКЦИЯ ПО ПРОВЕРКЕ БАЛАНСА', 'color: #4CAF50; font-size: 16px; font-weight: bold;');
+        console.log('1. Выполните в консоли: testBalanceSave(5000)');
+        console.log('2. Проверьте результат в консоли');
+        console.log('3. Обновите страницу и проверьте, что баланс сохранился');
+        
+        // Обновление статуса TonKeeper на кнопке в профиле
+        window.updateTonkeeperButton = function() {
+            const titleEl = document.querySelector('.tonkeeper-title');
+            const subtitleEl = document.querySelector('.tonkeeper-subtitle');
+            if (!titleEl || !subtitleEl) return;
+            
+            const isConnected = localStorage.getItem('jetstore_tonkeeper_connected') === 'true';
+            const address = localStorage.getItem('jetstore_tonkeeper_address') || '';
+            const balance = localStorage.getItem('jetstore_tonkeeper_balance') || '0';
+            
+            if (isConnected && address) {
+                const shortAddr = address.length > 18 ? address.slice(0, 6) + '…' + address.slice(-6) : address;
+                const balanceNum = parseFloat(balance);
+                const balanceText = isNaN(balanceNum) ? balance : balanceNum.toLocaleString('ru-RU');
+                
+                titleEl.textContent = 'TonKeeper подключен';
+                subtitleEl.textContent = `${shortAddr} · ${balanceText} TON`;
+            } else {
+                titleEl.textContent = 'Подключить TonKeeper';
+                subtitleEl.textContent = 'Криптокошелёк для TON';
+            }
+        };
+        
+        // Упрощённое подключение TonKeeper: надёжно открываем Tonkeeper,
+        // а статус/баланс читаем из localStorage, если их запишет бэкенд или скрипт Tonkeeper.
+        window.connectTonkeeper = function() {
+            const tg = window.Telegram?.WebApp;
+            const url = 'https://app.tonkeeper.com/ton-connect';
+            
+            if (typeof showNotification === 'function') {
+                showNotification('Открываем TonKeeper...', 'info');
+            }
+            
+            if (tg && typeof tg.openLink === 'function') {
+                tg.openLink(url);
+            } else {
+                window.open(url, '_blank');
+            }
+        };
+        
+        // Переход на страницу подарков пользователя
+        window.goToUserGifts = function() {
+            window.location.href = 'gift_user.html';
+        };
+    </script>
+    <script>
+        // Дополнительный скрипт для мобильной оптимизации и реферальной программы
+        document.addEventListener('DOMContentLoaded', function() {
+            // Улучшение касаний на мобильных
+            const buttons = document.querySelectorAll('button, .info-link, .deposit-option');
+            buttons.forEach(btn => {
+                btn.addEventListener('touchstart', function() {
+                    this.style.opacity = '0.8';
+                });
+                btn.addEventListener('touchend', function() {
+                    this.style.opacity = '1';
+                });
+            });
+            
+            // Предотвращение масштабирования при двойном тапе
+            let lastTouchEnd = 0;
+            document.addEventListener('touchend', function(event) {
+                const now = (new Date()).getTime();
+                if (now - lastTouchEnd <= 300) {
+                    event.preventDefault();
+                }
+                lastTouchEnd = now;
+            }, false);
+            
+            // ВАЖНО: Сначала загружаем данные пользователя (включая баланс из базы)
+            // loadUserData уже вызвана выше, но убеждаемся, что данные синхронизированы
+            // Используем только window.userData, так как локальная переменная userData может быть недоступна
+            console.log('Текущий баланс после загрузки:', window.userData?.currencies?.RUB);
+            
+            // Проверяем, что window.userData инициализирован
+            if (!window.userData) {
+                window.userData = {
+                    currencies: {
+                        RUB: 0,
+                        USDT: 0,
+                        USD: 0,
+                        EUR: 0
+                    }
+                };
+            }
+            
+            // Загружаем баланс из фиксированного ключа, если он есть
+            try {
+                if (window.Database && typeof window.Database.getBalanceFixed === 'function') {
+                    const savedBalance = window.Database.getBalanceFixed('RUB');
+                    if (savedBalance !== undefined && savedBalance !== null) {
+                        if (!window.userData.currencies) {
+                            window.userData.currencies = {};
+                        }
+                        window.userData.currencies.RUB = savedBalance;
+                        console.log('✅ Баланс загружен из фиксированного ключа:', savedBalance);
+                    }
+                } else {
+                    // Прямая загрузка из localStorage
+                    const balanceKey = 'jetstore_balance_fixed';
+                    const balanceData = JSON.parse(localStorage.getItem(balanceKey) || '{}');
+                    if (balanceData.RUB !== undefined && balanceData.RUB !== null) {
+                        if (!window.userData.currencies) {
+                            window.userData.currencies = {};
+                        }
+                        window.userData.currencies.RUB = balanceData.RUB;
+                        console.log('✅ Баланс загружен напрямую из localStorage:', balanceData.RUB);
+                    }
+                }
+            } catch (e) {
+                console.warn('⚠️ Ошибка загрузки баланса:', e);
+            }
+            
+            console.log('✅ window.userData инициализирован. Баланс:', window.userData.currencies?.RUB);
+            
+            // Инициализация профиля
+            if (typeof initializeProfile === 'function') {
+                initializeProfile();
+            }
+            
+            // Обновление статистики
+            if (typeof updateStats === 'function') {
+                updateStats();
+            }
+            
+            // Обновление баланса в шапке
+            updateHeaderBalance();
+            
+            // Обновляем статус TonKeeper на кнопке
+            if (typeof window.updateTonkeeperButton === 'function') {
+                window.updateTonkeeperButton();
+            }
+            
+            // Инициализация реферальной программы
+            if (typeof initializeReferralProgram === 'function') {
+            initializeReferralProgram();
+            }
+            
+            // Загружаем заказы при загрузке страницы
+            if (typeof loadUserPurchases === 'function') {
+                loadUserPurchases();
+            }
+            
+            // Проверяем, нужно ли открыть реферальную программу
+            if (sessionStorage.getItem('openReferral') === 'true') {
+                sessionStorage.removeItem('openReferral');
+                setTimeout(() => {
+                    if (typeof showReferralInfo === 'function') {
+                        showReferralInfo();
+                    } else if (typeof window.showReferralInfo === 'function') {
+                        window.showReferralInfo();
+                    }
+                }, 500);
+            }
+        });
+        
+        // Функция для показа уведомлений (адаптированная для мобильных)
+        function showMobileNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                <span>${message}</span>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Автоматическое удаление
+            setTimeout(() => {
+                notification.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
+            }, 3000);
+        }
+        
+        // Функция переключения вкладок
+        function switchTab(tabName) {
+            // Убираем активный класс у всех вкладок
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-pane').forEach(pane => {
+                pane.classList.remove('active');
+            });
+            
+            // Активируем выбранную вкладку
+            const tabBtn = document.querySelector(`.tab-btn[onclick*="${tabName}"]`);
+            
+            // Если переключаемся на покупки, загружаем их
+            if (tabName === 'purchases') {
+                loadPurchases();
+            }
+            if (tabBtn) {
+                tabBtn.classList.add('active');
+            }
+            
+            const tabPane = document.getElementById(`${tabName}Tab`);
+            if (tabPane) {
+                tabPane.classList.add('active');
+            }
+            
+            // Загружаем данные для вкладки
+            if (tabName === 'purchases') {
+                loadPurchases();
+            }
+        }
+        
+        // Загрузка покупок
+        function loadPurchases() {
+            const purchasesList = document.getElementById('purchasesList');
+            if (!purchasesList) return;
+            
+            try {
+                const purchases = JSON.parse(localStorage.getItem('jetstore_purchases') || '[]');
+                
+                if (purchases.length === 0) {
+                    purchasesList.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-shopping-bag"></i>
+                            <p>Пока нет покупок</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                purchasesList.innerHTML = '';
+                purchases.forEach((purchase, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'purchase-item';
+                    item.style.cssText = 'padding: 16px; background: rgba(30,30,46,0.8); border: 1px solid rgba(0,212,255,0.2); border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.3s ease;';
+                    item.onclick = () => showPurchaseDetails(purchase);
+                    item.onmouseenter = function() { this.style.borderColor = 'rgba(0,212,255,0.4)'; };
+                    item.onmouseleave = function() { this.style.borderColor = 'rgba(0,212,255,0.2)'; };
+                    
+                    const statusColors = {
+                        'успешно': '#4CAF50',
+                        'в процессе': '#FFC107',
+                        'отменен': '#f44336'
+                    };
+                    const statusColor = statusColors[purchase.status] || '#888';
+                    
+                    const date = purchase.date ? new Date(purchase.date).toLocaleDateString('ru-RU', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) : 'Дата не указана';
+                    
+                    item.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="flex: 1;">
+                                <div style="color: #ffffff; font-weight: 700; font-size: 1.1rem; margin-bottom: 6px;">
+                                    ${purchase.productName || purchase.name || 'Товар'}
+                                </div>
+                                <div style="color: rgba(255,255,255,0.6); font-size: 0.85rem; margin-bottom: 8px;">
+                                    ${date}
+                                </div>
+                                <div style="display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40;">
+                                    ${purchase.status || 'в процессе'}
+                                </div>
+                            </div>
+                            <div style="text-align: right; margin-left: 15px;">
+                                <div style="color: #00d4ff; font-size: 1.3rem; font-weight: 700;">
+                                    ${purchase.price || 0} ₽
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    purchasesList.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Ошибка загрузки покупок:', error);
+                purchasesList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Ошибка загрузки покупок</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Показать детали покупки
+        function showPurchaseDetails(purchase) {
+            const popup = document.getElementById('purchaseDetailsPopup');
+            if (!popup) return;
+            
+            const statusColors = {
+                'успешно': '#4CAF50',
+                'в процессе': '#FFC107',
+                'отменен': '#f44336'
+            };
+            const statusColor = statusColors[purchase.status] || '#888';
+            
+            const date = purchase.date ? new Date(purchase.date).toLocaleDateString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) : 'Дата не указана';
+            
+            document.getElementById('purchaseDetailsName').textContent = purchase.productName || purchase.name || 'Товар';
+            document.getElementById('purchaseDetailsDate').textContent = date;
+            document.getElementById('purchaseDetailsStatus').textContent = purchase.status || 'в процессе';
+            document.getElementById('purchaseDetailsStatus').style.color = statusColor;
+            document.getElementById('purchaseDetailsPrice').textContent = `${purchase.price || 0} ₽`;
+            
+            if (purchase.game) {
+                const gameNames = {
+                    'clashroyale': 'Clash Royale',
+                    'clashofclans': 'Clash of Clans',
+                    'brawlstars': 'Brawl Stars'
+                };
+                const gameNameEl = document.getElementById('purchaseDetailsGame');
+                const gameWrapperEl = document.getElementById('purchaseDetailsGameWrapper');
+                if (gameNameEl) gameNameEl.textContent = gameNames[purchase.game] || purchase.game;
+                if (gameWrapperEl) gameWrapperEl.style.display = 'block';
+            } else {
+                const gameWrapperEl = document.getElementById('purchaseDetailsGameWrapper');
+                if (gameWrapperEl) gameWrapperEl.style.display = 'none';
+            }
+            
+            popup.classList.add('active');
+        }
+        
+        function closePurchaseDetails() {
+            const popup = document.getElementById('purchaseDetailsPopup');
+            if (popup) popup.classList.remove('active');
+        }
+        
+        // Загружаем покупки при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            // Загружаем username бота с сервера
+            const apiBase = window.JET_API_BASE || (typeof localStorage !== 'undefined' && localStorage.getItem('jet_api_base')) || window.location.origin;
+            fetch(apiBase + '/api/config').then(r => r.json()).then(c => {
+                if (c && c.bot_username) {
+                    window.JET_BOT_USERNAME = c.bot_username;
+                }
+            }).catch(() => {});
+            setTimeout(() => {
+                if (document.getElementById('purchasesTab')?.classList.contains('active')) {
+                    loadPurchases();
+                }
+            }, 500);
+        });
+        
+        // Закрытие попапа детального просмотра при клике вне его
+        document.addEventListener('click', function(e) {
+            const popup = document.getElementById('purchaseDetailsPopup');
+            if (popup && popup.classList.contains('active')) {
+                if (e.target === popup) {
+                    closePurchaseDetails();
+                }
+            }
+        });
+        
+        // Функции для реферальной программы
+        function initializeReferralProgram() {
+            // Инициализируем реферальные данные, если их нет
+            if (!userData.referrals) {
+                userData.referrals = {
+                    count: 0,
+                    earnings: 0,
+                    list: []
+                };
+            }
+            
+            // Обновляем статистику рефералов
+            const referralsCount = window.userData?.referrals?.count || 0;
+            const referralEarnings = window.userData?.referrals?.earnings || 0;
+            
+            const referralsCountElement = document.getElementById('referralsCount');
+            const referralEarningsElement = document.getElementById('referralEarnings');
+            
+            if (referralsCountElement) {
+                referralsCountElement.textContent = referralsCount;
+            }
+            
+            if (referralEarningsElement) {
+                referralEarningsElement.textContent = `${referralEarnings} ₽`;
+            }
+            
+            // Генерация реферальной ссылки на основе ID пользователя
+            const userId = userData.id || document.getElementById('profileUserId')?.textContent || '000000';
+            const botUsername = window.JET_BOT_USERNAME || 'JetStoreApp_bot';
+            const referralLink = `https://t.me/${botUsername}?start=ref_${userId}`;
+            const referralLinkElement = document.getElementById('referralLinkText');
+            
+            if (referralLinkElement) {
+                referralLinkElement.textContent = referralLink;
+            }
+        }
+        
+        function copyReferralLink() {
+            const referralLink = document.getElementById('referralLinkText').textContent;
+            
+            // Используем Clipboard API, если доступен
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(referralLink)
+                    .then(() => {
+                        showMobileNotification('Реферальная ссылка скопирована!', 'success');
+                    })
+                    .catch(err => {
+                        console.error('Ошибка копирования: ', err);
+                        copyToClipboardFallback(referralLink);
+                    });
+            } else {
+                copyToClipboardFallback(referralLink);
+            }
+        }
+        
+        function copyToClipboardFallback(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showMobileNotification('Реферальная ссылка скопирована!', 'success');
+                } else {
+                    showMobileNotification('Не удалось скопировать ссылку', 'error');
+                }
+            } catch (err) {
+                console.error('Ошибка копирования: ', err);
+                showMobileNotification('Ошибка копирования', 'error');
+            }
+            
+            document.body.removeChild(textArea);
+        }
+        
+        // Функция для просмотра рефералов (заглушка)
+        function viewReferrals() {
+            showMobileNotification('Список рефералов будет доступен в будущих обновлениях', 'info');
+        }
+        
+        // Функция для вывода реферальных средств (заглушка)
+        function withdrawReferralEarnings() {
+            showMobileNotification('Вывод реферальных средств будет доступен в будущих обновлениях', 'info');
+        }
+        
+        // Обработчик клика на кнопку пополнения
+        function handleDepositClick(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            console.log('Кнопка пополнения нажата');
+            
+            // Проверяем доступность функции
+            if (typeof processDeposit === 'function') {
+                console.log('processDeposit доступна, вызываем...');
+                processDeposit();
+            } else if (typeof window.processDeposit === 'function') {
+                console.log('window.processDeposit доступна, вызываем...');
+                window.processDeposit();
+            } else {
+                console.error('processDeposit не найдена!');
+                alert('Ошибка: функция пополнения не найдена. Проверьте консоль.');
+            }
+            return false;
+        }
+        
+        // Экспортируем функции глобально
+        window.handleDepositClick = handleDepositClick;
+        window.showReferralInfo = showReferralInfo;
+        window.switchTab = switchTab;
+        window.loadPurchases = loadPurchases;
+        window.showPurchaseDetails = showPurchaseDetails;
+        window.closePurchaseDetails = closePurchaseDetails;
+        
+        // Показать информацию о реферальной программе
+        function showReferralInfo() {
+            // Получаем userData из глобального объекта
+            const currentUserData = window.userData || {};
+            const userId = currentUserData.id || '000000';
+            const botUsername = window.JET_BOT_USERNAME || 'JetStoreApp_bot';
+            const referralLink = `https://t.me/${botUsername}?start=ref_${userId}`;
+            const referralsCount = currentUserData.referrals?.count || 0;
+            const referralEarnings = currentUserData.referrals?.earnings || 0;
+            
+            const modal = document.createElement('div');
+            modal.className = 'popup active';
+            modal.id = 'referralPopup';
+            modal.innerHTML = `
+                <div class="popup-content">
+                    <div class="popup-header">
+                        <h3>Реферальная программа</h3>
+                        <button class="close-btn" onclick="document.getElementById('referralPopup').remove()">×</button>
+                    </div>
+                    <div class="popup-body">
+                        <div class="referral-stats" style="margin-bottom: 20px;">
+                            <div class="stat-item-referral" style="background: rgba(0, 0, 0, 0.8); color: white;">
+                                <div class="stat-value-referral" style="color: #00d4ff;">${referralsCount}</div>
+                                <div class="stat-label-referral" style="color: rgba(255, 255, 255, 0.7);">Приглашено друзей</div>
+                            </div>
+                            <div class="stat-item-referral" style="background: rgba(0, 0, 0, 0.8); color: white;">
+                                <div class="stat-value-referral" style="color: #00d4ff;">${referralEarnings} ₽</div>
+                                <div class="stat-label-referral" style="color: rgba(255, 255, 255, 0.7);">Заработано</div>
+                            </div>
+                        </div>
+                        
+                        <div class="referral-link-container" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 12px; padding: 16px; margin-bottom: 15px;">
+                            <h4 style="color: white; margin-bottom: 10px; font-size: 1rem;">Ваша реферальная ссылка:</h4>
+                            <div class="referral-link" id="referralLinkText" style="background: rgba(255, 255, 255, 0.9); border-radius: 8px; padding: 12px; font-family: monospace; font-size: 0.9rem; word-break: break-all; margin-bottom: 10px; color: #333;">
+                                ${referralLink}
+                            </div>
+                            <button class="copy-referral-btn" onclick="copyReferralLinkFromPopup();" style="width: 100%; padding: 12px; background: white; color: #f5576c; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                                <i class="fas fa-copy"></i> Копировать ссылку
+                            </button>
+                        </div>
+                        
+                        <div class="referral-info" style="background: rgba(0, 0, 0, 0.8); border-radius: 8px; padding: 12px; color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; line-height: 1.5;">
+                            <i class="fas fa-info-circle" style="color: #00d4ff;"></i>
+                            <span>Приглашайте друзей и получайте 10% от их пополнений! Друг тоже получает бонус 50₽ на первый депозит.</span>
+                        </div>
+                        
+                        <div class="referral-rules" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #2a2a2a;">
+                            <h4 style="color: #ffffff; margin-bottom: 10px; font-size: 1rem;">Как это работает:</h4>
+                            <ul style="padding-left: 20px; margin: 0; color: #888; font-size: 0.85rem; line-height: 1.6;">
+                                <li>Делитесь своей реферальной ссылкой с друзьями</li>
+                                <li>Когда друг пополняет баланс, вы получаете 10% от суммы</li>
+                                <li>Максимальный бонус за одного реферала: 1000₽</li>
+                                <li>Вывод реферальных средств доступен от 500₽</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="popup-footer">
+                        <button class="btn-primary" onclick="document.getElementById('referralPopup').remove()">Закрыть</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        // Копирование реферальной ссылки из попапа
+        function copyReferralLinkFromPopup() {
+            const referralLinkElement = document.getElementById('referralLinkText');
+            if (referralLinkElement) {
+                const referralLink = referralLinkElement.textContent.trim();
+                copyReferralLinkToClipboard(referralLink);
+                document.getElementById('referralPopup').remove();
+            }
+        }
+        
+        // Универсальная функция копирования в буфер обмена
+        function copyReferralLinkToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text)
+                    .then(() => {
+                        showMobileNotification('Реферальная ссылка скопирована!', 'success');
+                    })
+                    .catch(err => {
+                        console.error('Ошибка копирования: ', err);
+                        copyToClipboardFallback(text);
+                    });
+            } else {
+                copyToClipboardFallback(text);
+            }
+        }
+        
+        // Обновление баланса в шапке
+        function updateHeaderBalance() {
+            if (window.userData && window.userData.currencies) {
+                const balance = window.userData.currencies[window.userData.activeCurrency || 'RUB'] || 0;
+                const headerBalanceEl = document.getElementById('headerBalance');
+                if (headerBalanceEl) {
+                    headerBalanceEl.textContent = `${balance.toFixed(0)} ₽`;
+                }
+            }
+        }
+        
+        // Обновление статистики для нового дизайна
+        function updateStatsNew() {
+            if (typeof userData === 'undefined') return;
+            
+            // Заказов
+            const ordersCount = userData.purchases ? userData.purchases.length : 0;
+            const ordersCountEl = document.getElementById('ordersCount');
+            if (ordersCountEl) {
+                ordersCountEl.textContent = ordersCount;
+            }
+            
+            // На звёзды (сумма покупок категории telegram)
+            let starsSpent = 0;
+            if (userData.purchases) {
+                starsSpent = userData.purchases
+                    .filter(p => p.category === 'telegram')
+                    .reduce((sum, p) => sum + (p.price || 0), 0);
+            }
+            const starsSpentEl = document.getElementById('starsSpent');
+            if (starsSpentEl) {
+                starsSpentEl.textContent = `${starsSpent} ₽`;
+            }
+            
+            // На NFT (сумма покупок категории games)
+            let nftSpent = 0;
+            if (userData.purchases) {
+                nftSpent = userData.purchases
+                    .filter(p => p.category === 'games')
+                    .reduce((sum, p) => sum + (p.price || 0), 0);
+            }
+            const nftSpentEl = document.getElementById('nftSpent');
+            if (nftSpentEl) {
+                nftSpentEl.textContent = `${nftSpent} ₽`;
+            }
+        }
+        
+        // Переопределяем updateStats для нового дизайна
+        if (typeof updateStats === 'function') {
+            const originalUpdateStats = updateStats;
+            updateStats = function() {
+                originalUpdateStats();
+                updateStatsNew();
+                updateHeaderBalance();
+            };
+        }
+    </script>
+</body>
+</html>

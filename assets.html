@@ -1,0 +1,1998 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Активы - JET</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000000;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        .assets-container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 0;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #0a0e27 0%, #1a1a3e 30%, #16213e 60%, #0f3460 100%);
+            padding-bottom: 100px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Анимация видео при загрузке */
+        .assets-graph-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 10000;
+            animation: fadeOut 0.5s ease 2.5s forwards;
+            overflow: hidden;
+        }
+        
+        .assets-video-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
+        }
+        
+        .assets-graph-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+        }
+        
+        .assets-graph-text {
+            color: #ffffff;
+            font-size: 1.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            animation: textFadeIn 0.8s ease 1.5s both;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            position: relative;
+            z-index: 2;
+        }
+        
+        @keyframes textFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                visibility: hidden;
+            }
+        }
+        
+        /* Шапка */
+        .assets-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .back-btn {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 8px;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+        }
+        
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(-3px) translateY(-2px);
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        .back-btn:active {
+            transform: translateX(-1px) translateY(0);
+        }
+        
+        @keyframes buttonFloat {
+            0%, 100% {
+                transform: translateX(-3px) translateY(-2px);
+            }
+            50% {
+                transform: translateX(-3px) translateY(-5px);
+            }
+        }
+        
+        .header-title {
+            color: #ffffff;
+            font-size: 1.4rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .assets-user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 6px 12px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .assets-user-info:hover {
+            background: rgba(0, 212, 255, 0.1);
+            transform: translateY(-2px);
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        .assets-user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 1.2rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        
+        .assets-user-avatar img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .assets-user-name {
+            color: #ffffff;
+            font-size: 0.95rem;
+            font-weight: 600;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .assets-balance {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.2) 0%, rgba(0, 212, 255, 0.2) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 20px;
+            color: #ffffff;
+            font-size: 0.95rem;
+            font-weight: 700;
+            white-space: nowrap;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .assets-balance-icon {
+            color: #00d4ff;
+            font-size: 1rem;
+        }
+        
+        @media (max-width: 480px) {
+            .assets-user-name {
+                max-width: 80px;
+                font-size: 0.85rem;
+            }
+            
+            .assets-user-avatar {
+                width: 36px;
+                height: 36px;
+                font-size: 1rem;
+            }
+            
+            .assets-balance {
+                padding: 4px 10px;
+                font-size: 0.8rem;
+                max-width: 90px;
+            }
+            
+            .header-right {
+                gap: 8px;
+            }
+        }
+        
+        @media (max-width: 360px) {
+            .assets-user-name {
+                display: none;
+            }
+            
+            .assets-balance {
+                padding: 4px 8px;
+                font-size: 0.75rem;
+                max-width: 80px;
+            }
+        }
+        
+        /* Табы */
+        .assets-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin: 0 20px 20px 20px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .assets-tabs::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .assets-tab {
+            flex: 1;
+            min-width: fit-content;
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            white-space: nowrap;
+        }
+        
+        .assets-tab:hover {
+            color: rgba(255, 255, 255, 0.7);
+            animation: tabFloat 1.5s ease-in-out infinite;
+        }
+        
+        .asset-card:hover {
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes tabFloat {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-3px);
+            }
+        }
+        
+        .assets-tab.active {
+            color: #ffffff;
+            font-weight: 600;
+        }
+        
+        .assets-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4ff 0%, #40e0d0 100%);
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: scaleX(0);
+            }
+            to {
+                transform: scaleX(1);
+            }
+        }
+        
+        .assets-tab-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 100%);
+            color: #ffffff;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 6px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+        
+        /* Контент */
+        .assets-content {
+            display: none;
+            padding: 0 20px 20px 20px;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .assets-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .assets-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        /* Сетка и карточки NFT подарков (подарки из профиля Telegram) */
+        .nft-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+            padding: 8px 20px 20px 20px;
+        }
+
+        .nft-card {
+            background: radial-gradient(circle at 0 0, rgba(0, 212, 255, 0.18), transparent 55%), 
+                        radial-gradient(circle at 100% 100%, rgba(128, 0, 255, 0.22), transparent 55%),
+                        rgba(0, 0, 0, 0.95);
+            border-radius: 18px;
+            padding: 10px 10px 12px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+        }
+
+        .nft-card-image {
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #1b1f3b 0%, #2b1748 40%, #12263f 100%);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nft-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .nft-card-title {
+            margin-top: 4px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .nft-card-subtitle {
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.7);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .nft-card-footer {
+            margin-top: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .nft-price-rub {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .nft-price-ton {
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .nft-rarity-badge {
+            position: absolute;
+            top: 6px;
+            left: 8px;
+            padding: 2px 6px;
+            border-radius: 999px;
+            font-size: 0.65rem;
+            text-transform: lowercase;
+            background: rgba(0, 0, 0, 0.55);
+            color: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        
+        .asset-card {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.9) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 120px;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .asset-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .asset-card:hover::before {
+            opacity: 1;
+        }
+        
+        .asset-card:hover {
+            border-color: rgba(0, 212, 255, 0.4);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.3);
+            animation: cardFloat 1.5s ease-in-out infinite;
+        }
+        
+        .asset-card:active {
+            transform: translateY(-1px);
+        }
+        
+        @keyframes cardFloat {
+            0%, 100% {
+                transform: translateY(-3px);
+            }
+            50% {
+                transform: translateY(-6px);
+            }
+        }
+        
+        .asset-icon {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            position: relative;
+            z-index: 1;
+            transition: transform 0.3s ease;
+        }
+        
+        .asset-card:hover .asset-icon {
+            transform: scale(1.1);
+        }
+        
+        .asset-title {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Нижняя навигация */
+        .profile-nav {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0;
+            right: 0;
+            width: 100%;
+            background: rgba(10, 14, 39, 0.25);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0 max(20px, env(safe-area-inset-bottom, 20px)) 0;
+            border-top: 1px solid rgba(0, 212, 255, 0.15);
+            z-index: 9999;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+            transform: none !important;
+            will-change: auto;
+        }
+        
+        .profile-nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            border: none;
+            padding: 8px 16px;
+            color: rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.7rem;
+            flex: 1;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+        
+        .profile-nav-btn:hover:not(.active) {
+            color: rgba(255, 255, 255, 0.7);
+            animation: navButtonFloat 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes navButtonFloat {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-3px);
+            }
+        }
+        
+        .profile-nav-btn i {
+            font-size: 1.4rem;
+        }
+        
+        .profile-nav-btn.active {
+            color: #00d4ff;
+        }
+        
+        .profile-nav-btn.active .nav-icon-wrapper {
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
+            border-radius: 12px;
+            padding: 8px;
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.5);
+        }
+        
+        .profile-nav-btn.active .nav-icon-wrapper i {
+            color: #ffffff;
+        }
+        
+        .nav-icon-wrapper {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        /* Мобильная оптимизация */
+        @media (max-width: 768px) {
+            .assets-tabs {
+                margin: 0 15px 15px 15px;
+            }
+            
+            .assets-tab {
+                padding: 10px 16px;
+                font-size: 0.9rem;
+            }
+            
+            .assets-content {
+                padding: 0 15px 15px 15px;
+            }
+            
+            .assets-grid {
+                gap: 12px;
+            }
+            
+            .asset-card {
+                padding: 16px;
+                min-height: 100px;
+            }
+            
+            .asset-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 1.5rem;
+            }
+            
+            .asset-title {
+                font-size: 0.85rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .assets-tab {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+            }
+            
+            .assets-tab-badge {
+                font-size: 0.65rem;
+                padding: 1px 6px;
+            }
+            
+            .assets-grid {
+                gap: 10px;
+            }
+            
+            .asset-card {
+                padding: 14px;
+                min-height: 90px;
+            }
+            
+            .asset-icon {
+                width: 35px;
+                height: 35px;
+                font-size: 1.3rem;
+            }
+            
+            .asset-title {
+                font-size: 0.8rem;
+            }
+        }
+        
+        /* Выпадающее меню профиля в активах */
+        .assets-profile-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.98) 0%, rgba(0, 0, 0, 0.95) 100%);
+            border-radius: 16px;
+            width: 280px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            backdrop-filter: blur(20px);
+            z-index: 10000;
+            animation: dropdownSlide 0.3s ease-out;
+        }
+        
+        .assets-profile-dropdown.active {
+            display: block;
+        }
+        
+        @keyframes dropdownSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .assets-user-info {
+            position: relative;
+        }
+        
+        .assets-profile-dropdown-content {
+            padding: 16px;
+        }
+        
+        .assets-profile-balance-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .assets-profile-balance-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(0, 212, 255, 0.1);
+        }
+        
+        .assets-profile-balance-amount {
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        
+        .assets-profile-tonkeeper-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .assets-profile-tonkeeper-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .assets-profile-tonkeeper-info {
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            border: 1px solid rgba(0, 212, 255, 0.1);
+        }
+        
+        .assets-profile-tonkeeper-connect-btn {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 100%);
+            border: none;
+            border-radius: 10px;
+            color: #ffffff;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .assets-profile-tonkeeper-connect-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
+        }
+        
+        .assets-profile-tonkeeper-address {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.85rem;
+            font-family: monospace;
+            word-break: break-all;
+            margin-bottom: 8px;
+        }
+        
+        .assets-profile-tonkeeper-balance {
+            color: #00d4ff;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        
+        /* Кнопка "Мои подарки" в мини-профиле */
+        .assets-profile-gifts-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .assets-profile-gifts-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(64, 224, 208, 0.1) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .assets-profile-gifts-btn:hover {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.25) 0%, rgba(64, 224, 208, 0.2) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.2);
+        }
+        
+        .assets-profile-gifts-btn i:first-child {
+            color: #00d4ff;
+            font-size: 1.1rem;
+        }
+        
+        .assets-profile-gifts-btn span {
+            flex: 1;
+            text-align: left;
+        }
+        
+        .assets-profile-gifts-btn i:last-child {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+        }
+        
+        @media (max-width: 480px) {
+            .assets-profile-dropdown {
+                width: 260px;
+                right: -10px;
+            }
+        }
+        
+        /* Стили для аукционов (Usernames и Номера) */
+        .auction-search-box {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            padding: 14px 18px;
+            margin: 0 0 20px 0;
+        }
+        
+        .auction-search-box i {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 1.1rem;
+        }
+        
+        .auction-search-box input {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 1rem;
+            outline: none;
+        }
+        
+        .auction-search-box input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+        
+        .auction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .auction-title {
+            color: #ffffff;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        .auction-filters {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .auction-filter-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 212, 255, 0.15);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 10px;
+            padding: 10px 16px;
+            color: #00d4ff;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .auction-filter-btn:hover {
+            background: rgba(0, 212, 255, 0.25);
+            transform: translateY(-2px);
+        }
+        
+        .auction-filter-btn i {
+            font-size: 0.8rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .auction-table-header {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1.5fr;
+            gap: 10px;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+        
+        .auction-table-header span {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .auction-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .auction-item {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1.5fr;
+            gap: 10px;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            align-items: center;
+        }
+        
+        .auction-item:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.2);
+            transform: translateX(4px);
+        }
+        
+        .auction-item-name {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .auction-item-title {
+            color: #00d4ff;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .auction-item-subtitle {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+        }
+        
+        .auction-item-value {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .auction-item-price {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        
+        .auction-item-price .ton-icon {
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: #ffffff;
+        }
+        
+        .auction-item-price-usd {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+        }
+        
+        .auction-item-status {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: flex-start;
+        }
+        
+        .auction-status-badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .auction-status-badge.for-sale {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+        }
+        
+        .auction-status-badge.on-auction {
+            background: rgba(255, 152, 0, 0.2);
+            color: #FF9800;
+        }
+        
+        .auction-item-time {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+        }
+        
+        .auction-item-arrow {
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 1rem;
+            justify-self: end;
+        }
+        
+        .auction-empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            text-align: center;
+        }
+        
+        .auction-empty-state i {
+            font-size: 3rem;
+            color: rgba(0, 212, 255, 0.3);
+            margin-bottom: 16px;
+        }
+        
+        .auction-empty-state p {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin: 0 0 8px 0;
+        }
+        
+        .auction-empty-state span {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 480px) {
+            .auction-search-box {
+                padding: 12px 14px;
+            }
+            
+            .auction-search-box input {
+                font-size: 0.95rem;
+            }
+            
+            .auction-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .auction-filters {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+            
+            .auction-filter-btn {
+                flex: 1;
+                justify-content: center;
+                padding: 10px 12px;
+                font-size: 0.85rem;
+            }
+            
+            .auction-table-header {
+                grid-template-columns: 1.5fr 1fr 1fr;
+                padding: 10px 12px;
+            }
+            
+            .auction-table-header span {
+                font-size: 0.75rem;
+            }
+            
+            .auction-item {
+                grid-template-columns: 1.5fr 1fr 1fr;
+                padding: 12px;
+            }
+            
+            .auction-item-title {
+                font-size: 0.9rem;
+            }
+            
+            .auction-item-price {
+                font-size: 0.9rem;
+            }
+            
+            .auction-status-badge {
+                font-size: 0.75rem;
+                padding: 3px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Анимация видео при загрузке -->
+    <div class="assets-graph-animation" id="graphAnimation">
+        <video class="assets-video-background" autoplay muted loop playsinline>
+            <source src="assets/video.mp4" type="video/mp4">
+        </video>
+        <div class="assets-graph-wrapper">
+            <div class="assets-graph-text">JET NFT</div>
+        </div>
+    </div>
+    
+    <div class="assets-container">
+        <!-- Шапка -->
+        <div class="assets-header">
+            <div class="header-left">
+                <button class="back-btn" onclick="window.history.back()">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <h1 class="header-title">Активы</h1>
+            </div>
+            <div class="header-right">
+                <div class="assets-balance" id="assetsBalance">
+                    <i class="fas fa-wallet assets-balance-icon"></i>
+                    <span id="assetsBalanceAmount">0 ₽</span>
+                </div>
+                <div class="assets-user-info" onclick="toggleAssetsProfileDropdown(event)">
+                    <div class="assets-user-avatar" id="assetsUserAvatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="assets-user-name" id="assetsUserName">Пользователь</div>
+                    <!-- Выпадающее меню профиля -->
+                    <div id="assetsProfileDropdown" class="assets-profile-dropdown">
+                        <div class="assets-profile-dropdown-content">
+                            <div class="assets-profile-balance-label">Доступный баланс:</div>
+                            <div class="assets-profile-balance-item">
+                                <span class="assets-profile-balance-amount" id="assetsProfileBalanceRub">0 ₽</span>
+                            </div>
+                            <div class="assets-profile-balance-item">
+                                <span class="assets-profile-balance-amount" id="assetsProfileBalanceTon">0 TON</span>
+                            </div>
+                            <div class="assets-profile-tonkeeper-section">
+                                <div class="assets-profile-tonkeeper-label">TonKeeper</div>
+                                <div id="assetsProfileTonkeeperContent">
+                                    <!-- Контент будет динамически загружен -->
+                                </div>
+                            </div>
+                            
+                            <!-- Кнопка "Мои подарки" -->
+                            <div class="assets-profile-gifts-section">
+                                <button class="assets-profile-gifts-btn" onclick="goToUserGifts()">
+                                    <i class="fas fa-gift"></i>
+                                    <span>Ваши подарки</span>
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Табы -->
+        <div class="assets-tabs">
+            <button class="assets-tab active" onclick="switchAssetsTab('gifts')">
+                Подарки
+                <span class="assets-tab-badge">New</span>
+            </button>
+            <button class="assets-tab" onclick="switchAssetsTab('usernames')">Usernames</button>
+            <button class="assets-tab" onclick="switchAssetsTab('numbers')">Номера</button>
+            <button class="assets-tab" onclick="switchAssetsTab('accounts')">Аккаунты</button>
+        </div>
+        
+        <!-- Контент для таба Подарки (NFT подарки из профиля Telegram) -->
+        <div id="assetsTabGifts" class="assets-content active">
+            <div id="nftGiftsHeader" class="assets-section-title" style="padding: 16px 20px 4px 20px; font-size: 0.9rem; color: rgba(255,255,255,0.7);">
+                NFT подарки вашего Telegram профиля
+            </div>
+            <div id="nftGiftsGrid" class="nft-grid">
+                <!-- Карточки NFT будут подставляться динамически -->
+            </div>
+        </div>
+        
+        <!-- Контент для таба Usernames -->
+        <div id="assetsTabUsernames" class="assets-content">
+            <!-- Поиск -->
+            <div class="auction-search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="usernameSearchInput" placeholder="Введите Telegram username..." oninput="filterUsernames()">
+            </div>
+            
+            <!-- Заголовок и фильтры -->
+            <div class="auction-header">
+                <h2 class="auction-title">Топ аукционы</h2>
+                <div class="auction-filters">
+                    <div class="auction-filter-btn" onclick="toggleUsernameStatusFilter()">
+                        <span id="usernameStatusText">На продаже</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="auction-filter-btn" onclick="toggleUsernameSortFilter()">
+                        <span id="usernameSortText">Цена: низкая</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Заголовки таблицы -->
+            <div class="auction-table-header">
+                <span class="auction-col-name">Username</span>
+                <span class="auction-col-value">Цена</span>
+                <span class="auction-col-status">Статус</span>
+            </div>
+            
+            <!-- Список usernames -->
+            <div class="auction-list" id="usernamesList">
+                <div class="auction-empty-state">
+                    <i class="fas fa-at"></i>
+                    <p>Пока нет доступных username</p>
+                    <span>Следите за обновлениями</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Контент для таба Номера -->
+        <div id="assetsTabNumbers" class="assets-content">
+            <!-- Поиск -->
+            <div class="auction-search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="numberSearchInput" placeholder="+888  Введите номер телефона..." oninput="filterNumbers()">
+            </div>
+            
+            <!-- Заголовок и фильтры -->
+            <div class="auction-header">
+                <h2 class="auction-title">Топ аукционы</h2>
+                <div class="auction-filters">
+                    <div class="auction-filter-btn" onclick="toggleNumberStatusFilter()">
+                        <span id="numberStatusText">На аукционе</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="auction-filter-btn" onclick="toggleNumberSortFilter()">
+                        <span id="numberSortText">Цена: высокая</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Заголовки таблицы -->
+            <div class="auction-table-header">
+                <span class="auction-col-name">Номер</span>
+                <span class="auction-col-value">Мин. ставка</span>
+                <span class="auction-col-status">Окончание</span>
+            </div>
+            
+            <!-- Список номеров -->
+            <div class="auction-list" id="numbersList">
+                <div class="auction-empty-state">
+                    <i class="fas fa-phone"></i>
+                    <p>Пока нет доступных номеров</p>
+                    <span>Следите за обновлениями</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Контент для таба Аккаунты -->
+        <div id="assetsTabAccounts" class="assets-content">
+            <div class="assets-grid">
+                <div class="asset-card" onclick="showNotification('Физические аккаунты скоро будут доступны')">
+                    <div class="asset-icon">
+                        <i class="fas fa-user-circle" style="color: #F5576C;"></i>
+                    </div>
+                    <div class="asset-title">Физические аккаунты</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Нижняя навигация -->
+    <nav class="profile-nav">
+        <button class="profile-nav-btn" onclick="window.location.href='index.html'">
+            <div class="nav-icon-wrapper">
+                <i class="fas fa-home"></i>
+            </div>
+            <span>Главная</span>
+        </button>
+        <button class="profile-nav-btn" onclick="window.location.href='referral.html'">
+            <div class="nav-icon-wrapper">
+                <i class="fas fa-coins"></i>
+            </div>
+            <span>Заработать</span>
+        </button>
+        <button class="profile-nav-btn active">
+            <div class="nav-icon-wrapper">
+                <i class="fab fa-telegram-plane"></i>
+            </div>
+            <span>Активы</span>
+        </button>
+        <button class="profile-nav-btn" onclick="window.location.href='profile.html'">
+            <div class="nav-icon-wrapper">
+                <i class="fas fa-user"></i>
+            </div>
+            <span>Профиль</span>
+        </button>
+    </nav>
+    
+    <script src="config.js"></script>
+    <script src="database.js"></script>
+    <script>
+        // Удаление анимации графика после завершения
+        document.addEventListener('DOMContentLoaded', function() {
+            const animation = document.getElementById('graphAnimation');
+            const hasSeenAssetsIntro = localStorage.getItem('jet_assets_intro_seen') === 'true';
+            
+            if (hasSeenAssetsIntro) {
+                // Пользователь уже видел анимацию — сразу скрываем её
+                if (animation) {
+                    animation.style.display = 'none';
+                }
+                // Загружаем данные пользователя
+                loadUserDataForAssets();
+            } else {
+                // Первый заход в активы — показываем анимацию, затем скрываем и запоминаем
+                setTimeout(function() {
+                    if (animation) {
+                        animation.style.display = 'none';
+                    }
+                    localStorage.setItem('jet_assets_intro_seen', 'true');
+                }, 3000);
+                
+                // Параллельно загружаем данные пользователя
+                loadUserDataForAssets();
+            }
+        });
+        
+        // Загрузка данных пользователя для активов
+        function loadUserDataForAssets() {
+            // Загружаем данные из localStorage или базы данных
+            let userData = null;
+            
+            // Пытаемся загрузить из window.userData (если открыто из index.html)
+            if (window.userData && window.userData.id) {
+                userData = window.userData;
+            } else {
+                // Загружаем из localStorage
+                try {
+                    const db = window.Database || (typeof Database !== 'undefined' ? Database : null);
+                    if (db && typeof db.getUser === 'function') {
+                        const userId = localStorage.getItem('jetstore_user_id') || 'test_user_default';
+                        userData = db.getUser(userId);
+                    }
+                    
+                    if (!userData) {
+                        const userDataStr = localStorage.getItem('jetstore_user_data');
+                        if (userDataStr) {
+                            userData = JSON.parse(userDataStr);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Ошибка загрузки данных пользователя:', e);
+                }
+            }
+            
+            // Обновляем аватар и имя
+            let usernameForNft = null;
+            
+            if (userData) {
+                const avatarEl = document.getElementById('assetsUserAvatar');
+                const nameEl = document.getElementById('assetsUserName');
+                
+                if (avatarEl) {
+                    if (userData.photoUrl) {
+                        avatarEl.innerHTML = `<img src="${userData.photoUrl}" alt="Avatar">`;
+                    } else {
+                        // Используем первую букву имени или username
+                        const initial = (userData.firstName?.[0] || userData.username?.[0] || 'П').toUpperCase();
+                        avatarEl.innerHTML = initial;
+                    }
+                }
+                
+                if (nameEl) {
+                    const displayName = userData.firstName || userData.username || 'Пользователь';
+                    nameEl.textContent = displayName;
+                }
+
+                if (userData.username) {
+                    usernameForNft = userData.username;
+                }
+            } else {
+                // Используем данные Telegram WebApp если доступны
+                if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
+                    const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
+                    if (tgUser) {
+                        const avatarEl = document.getElementById('assetsUserAvatar');
+                        const nameEl = document.getElementById('assetsUserName');
+                        
+                        if (avatarEl && tgUser.photo_url) {
+                            avatarEl.innerHTML = `<img src="${tgUser.photo_url}" alt="Avatar">`;
+                        } else if (avatarEl) {
+                            const initial = (tgUser.first_name?.[0] || 'П').toUpperCase();
+                            avatarEl.innerHTML = initial;
+                        }
+                        
+                        if (nameEl) {
+                            nameEl.textContent = tgUser.first_name || 'Пользователь';
+                        }
+                        
+                        if (tgUser.username) {
+                            usernameForNft = tgUser.username;
+                        }
+                    }
+                }
+            }
+            
+            // Загружаем NFT подарки (если известен username)
+            if (usernameForNft) {
+                loadNftGiftsForUser(usernameForNft);
+            } else {
+                // Если username не найден, можно использовать дефолтный аккаунт (например, из настроек)
+                loadNftGiftsForUser('Exp3ns1ve');
+            }
+            
+            // Загружаем баланс
+            loadBalanceForAssets();
+            
+            // Обновляем баланс каждые 2 секунды (на случай изменения в другом окне)
+            setInterval(loadBalanceForAssets, 2000);
+        }
+        
+        // Загрузка баланса для активов
+        function loadBalanceForAssets() {
+            let balance = 0;
+            
+            // Пытаемся загрузить из window.userData
+            if (window.userData && window.userData.currencies && window.userData.currencies.RUB !== undefined) {
+                balance = window.userData.currencies.RUB;
+            } else {
+                // Загружаем из базы данных
+                try {
+                    const db = window.Database || (typeof Database !== 'undefined' ? Database : null);
+                    if (db && typeof db.getBalanceFixed === 'function') {
+                        balance = db.getBalanceFixed('RUB') || 0;
+                    } else {
+                        // Загружаем напрямую из localStorage
+                        const balanceKey = 'jetstore_balance_fixed';
+                        const balanceData = JSON.parse(localStorage.getItem(balanceKey) || '{}');
+                        balance = balanceData.RUB || 0;
+                    }
+                } catch (e) {
+                    console.error('Ошибка загрузки баланса:', e);
+                }
+            }
+            
+            // Обновляем отображение баланса
+            const balanceEl = document.getElementById('assetsBalanceAmount');
+            if (balanceEl) {
+                balanceEl.textContent = balance.toLocaleString('ru-RU') + ' ₽';
+            }
+        }
+        
+        // Функция переключения табов
+        function switchAssetsTab(tabName) {
+            // Убираем активное состояние со всех табов
+            document.querySelectorAll('.assets-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Убираем активное состояние со всего контента
+            document.querySelectorAll('.assets-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Активируем выбранный таб
+            const tabs = {
+                'gifts': 'Подарки',
+                'usernames': 'Usernames',
+                'numbers': 'Номера',
+                'accounts': 'Аккаунты'
+            };
+            
+            const tabButtons = document.querySelectorAll('.assets-tab');
+            tabButtons.forEach(btn => {
+                const text = btn.textContent.trim().replace('New', '').trim();
+                if (text.includes(tabs[tabName])) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Показываем соответствующий контент
+            const contentId = 'assetsTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1);
+            const content = document.getElementById(contentId);
+            if (content) {
+                content.classList.add('active');
+            }
+        }
+        
+        // Функции навигации
+        function goToStars() {
+            sessionStorage.setItem('openStoreSection', 'stars');
+            window.location.href = 'index.html';
+        }
+        
+        function goToPremium() {
+            sessionStorage.setItem('openStoreSection', 'premium');
+            window.location.href = 'index.html';
+        }
+        
+        function showNotification(message) {
+            alert(message);
+        }
+        
+        // Функции для выпадающего меню профиля в активах
+        function toggleAssetsProfileDropdown(event) {
+            if (event) {
+                event.stopPropagation();
+            }
+            
+            const dropdown = document.getElementById('assetsProfileDropdown');
+            if (!dropdown) return;
+            
+            const isActive = dropdown.classList.contains('active');
+            
+            // Закрываем все другие выпадающие меню
+            document.querySelectorAll('.assets-profile-dropdown').forEach(menu => {
+                menu.classList.remove('active');
+            });
+            
+            if (!isActive) {
+                // Загружаем данные перед открытием
+                loadAssetsProfileData();
+                dropdown.classList.add('active');
+            } else {
+                dropdown.classList.remove('active');
+            }
+        }
+        
+        function loadAssetsProfileData() {
+            // Загружаем данные пользователя
+            let userData = window.userData || {};
+            
+            // Баланс в рублях
+            let balanceRub = 0;
+            if (userData.currencies && userData.currencies.RUB !== undefined) {
+                balanceRub = userData.currencies.RUB;
+            } else {
+                try {
+                    const db = window.Database || (typeof Database !== 'undefined' ? Database : null);
+                    if (db && typeof db.getBalanceFixed === 'function') {
+                        balanceRub = db.getBalanceFixed('RUB') || 0;
+                    } else {
+                        const balanceKey = 'jetstore_balance_fixed';
+                        const balanceData = JSON.parse(localStorage.getItem(balanceKey) || '{}');
+                        balanceRub = balanceData.RUB || 0;
+                    }
+                } catch (e) {
+                    console.error('Ошибка загрузки баланса:', e);
+                }
+            }
+            
+            const balanceRubEl = document.getElementById('assetsProfileBalanceRub');
+            if (balanceRubEl) {
+                balanceRubEl.textContent = balanceRub.toLocaleString('ru-RU') + ' ₽';
+            }
+            
+            // Баланс в TON
+            let balanceTon = 0;
+            if (userData.currencies && userData.currencies.TON !== undefined) {
+                balanceTon = userData.currencies.TON;
+            }
+            const balanceTonEl = document.getElementById('assetsProfileBalanceTon');
+            if (balanceTonEl) {
+                balanceTonEl.textContent = balanceTon.toLocaleString('ru-RU') + ' TON';
+            }
+            
+            // Статус TonKeeper
+            const tonkeeperContentEl = document.getElementById('assetsProfileTonkeeperContent');
+            if (tonkeeperContentEl) {
+                const isConnected = localStorage.getItem('jetstore_tonkeeper_connected') === 'true';
+                const tonkeeperAddress = localStorage.getItem('jetstore_tonkeeper_address') || '';
+                const tonkeeperBalance = localStorage.getItem('jetstore_tonkeeper_balance') || '0';
+                
+                if (isConnected && tonkeeperAddress) {
+                    // TonKeeper подключен - показываем адрес и баланс
+                    tonkeeperContentEl.innerHTML = `
+                        <div class="assets-profile-tonkeeper-info">
+                            <div class="assets-profile-tonkeeper-address">${tonkeeperAddress}</div>
+                            <div class="assets-profile-tonkeeper-balance">${parseFloat(tonkeeperBalance).toLocaleString('ru-RU')} TON</div>
+                        </div>
+                    `;
+                } else {
+                    // TonKeeper не подключен - показываем кнопку подключения
+                    tonkeeperContentEl.innerHTML = `
+                        <button class="assets-profile-tonkeeper-connect-btn" onclick="goToProfileForTonkeeper()">
+                            Подключить
+                        </button>
+                    `;
+                }
+            }
+        }
+        
+        function goToProfileForTonkeeper() {
+            // Закрываем меню и переходим в профиль
+            const dropdown = document.getElementById('assetsProfileDropdown');
+            if (dropdown) {
+                dropdown.classList.remove('active');
+            }
+            window.location.href = 'profile.html';
+        }
+        
+        function goToUserGifts() {
+            // Закрываем меню и переходим в подарки пользователя
+            const dropdown = document.getElementById('assetsProfileDropdown');
+            if (dropdown) {
+                dropdown.classList.remove('active');
+            }
+            window.location.href = 'gift_user.html';
+        }
+        
+        // Закрытие выпадающего меню при клике вне его
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('assetsProfileDropdown');
+            const userInfo = document.querySelector('.assets-user-info');
+            
+            if (dropdown && dropdown.classList.contains('active')) {
+                if (!userInfo.contains(e.target)) {
+                    dropdown.classList.remove('active');
+                }
+            }
+        });
+        
+        // Загрузка NFT подарков для пользователя (пока заглушка с примером, как на скрине)
+        function loadNftGiftsForUser(username) {
+            const grid = document.getElementById('nftGiftsGrid');
+            const header = document.getElementById('nftGiftsHeader');
+            if (!grid) return;
+            
+            const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
+            
+            if (header) {
+                header.textContent = `NFT подарки аккаунта @${cleanUsername}`;
+            }
+            
+            // TODO: здесь должен быть реальный запрос к вашему бэкенду,
+            // который вернёт NFT подарки Telegram-профиля пользователя.
+            // Пока используем статический пример, как на скриншоте.
+            const demoNfts = [
+                {
+                    id: '#11004',
+                    title: 'Star Notepad #11004',
+                    subtitle: 'Star Notepad',
+                    priceRub: 2850,
+                    priceTon: 20,
+                    rarity: 'rare',
+                    image: null
+                },
+                {
+                    id: '#239448',
+                    title: 'B-Day Candle #239448',
+                    subtitle: 'B-Day Candle',
+                    priceRub: 610,
+                    priceTon: 4,
+                    rarity: 'rare',
+                    image: null
+                }
+            ];
+            
+            if (!demoNfts.length) {
+                grid.innerHTML = '<div style="grid-column: 1 / -1; padding: 20px; color: rgba(255,255,255,0.6); text-align: center; font-size: 0.9rem;">NFT подарков пока нет</div>';
+                return;
+            }
+            
+            grid.innerHTML = demoNfts.map(nft => `
+                <div class="nft-card">
+                    <div class="nft-card-image">
+                        ${nft.image ? `<img src="${nft.image}" alt="${nft.title}">` : ''}
+                    </div>
+                    <div class="nft-rarity-badge">${nft.rarity}</div>
+                    <div class="nft-card-title">${nft.title}</div>
+                    <div class="nft-card-subtitle">${nft.subtitle}</div>
+                    <div class="nft-card-footer">
+                        <div>
+                            <div class="nft-price-rub">${nft.priceRub.toLocaleString('ru-RU')} ₽</div>
+                            <div class="nft-price-ton">${nft.priceTon} TON</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        window.switchAssetsTab = switchAssetsTab;
+        window.toggleAssetsProfileDropdown = toggleAssetsProfileDropdown;
+        window.goToProfileForTonkeeper = goToProfileForTonkeeper;
+        window.goToUserGifts = goToUserGifts;
+        
+        // =============================================
+        // Usernames (аукцион)
+        // =============================================
+        let usernamesData = [];
+        let usernameStatusFilter = 'for_sale'; // for_sale, on_auction, all
+        let usernameSortFilter = 'price_low'; // price_low, price_high
+        
+        function loadUsernamesFromStorage() {
+            try {
+                const data = localStorage.getItem('jetstore_usernames');
+                if (data) {
+                    usernamesData = JSON.parse(data);
+                } else {
+                    usernamesData = [];
+                }
+            } catch (e) {
+                console.error('Ошибка загрузки usernames:', e);
+                usernamesData = [];
+            }
+            renderUsernamesList();
+        }
+        
+        function renderUsernamesList() {
+            const container = document.getElementById('usernamesList');
+            if (!container) return;
+            
+            let filtered = [...usernamesData];
+            
+            // Фильтрация по поиску
+            const searchInput = document.getElementById('usernameSearchInput');
+            if (searchInput && searchInput.value.trim()) {
+                const query = searchInput.value.trim().toLowerCase();
+                filtered = filtered.filter(u => u.username.toLowerCase().includes(query));
+            }
+            
+            // Фильтрация по статусу
+            if (usernameStatusFilter === 'for_sale') {
+                filtered = filtered.filter(u => u.status === 'for_sale');
+            } else if (usernameStatusFilter === 'on_auction') {
+                filtered = filtered.filter(u => u.status === 'on_auction');
+            }
+            
+            // Сортировка
+            if (usernameSortFilter === 'price_low') {
+                filtered.sort((a, b) => a.price - b.price);
+            } else if (usernameSortFilter === 'price_high') {
+                filtered.sort((a, b) => b.price - a.price);
+            }
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="auction-empty-state">
+                        <i class="fas fa-at"></i>
+                        <p>Пока нет доступных username</p>
+                        <span>Следите за обновлениями</span>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filtered.map(u => `
+                <div class="auction-item" onclick="showNotification('Username ${u.username} - ${u.price} TON')">
+                    <div class="auction-item-name">
+                        <span class="auction-item-title">@${u.username}</span>
+                        <span class="auction-item-subtitle">${u.username.toLowerCase()}.t.me</span>
+                    </div>
+                    <div class="auction-item-value">
+                        <div class="auction-item-price">
+                            <span class="ton-icon">💎</span>
+                            ${u.price}
+                        </div>
+                        <span class="auction-item-price-usd">Цена продажи</span>
+                    </div>
+                    <div class="auction-item-status">
+                        <span class="auction-status-badge ${u.status === 'for_sale' ? 'for-sale' : 'on-auction'}">
+                            ${u.status === 'for_sale' ? 'На продаже' : 'На аукционе'}
+                        </span>
+                        <span class="auction-item-time">${u.timeLeft || 'Без ограничений'}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function filterUsernames() {
+            renderUsernamesList();
+        }
+        
+        function toggleUsernameStatusFilter() {
+            if (usernameStatusFilter === 'for_sale') {
+                usernameStatusFilter = 'on_auction';
+                document.getElementById('usernameStatusText').textContent = 'На аукционе';
+            } else if (usernameStatusFilter === 'on_auction') {
+                usernameStatusFilter = 'all';
+                document.getElementById('usernameStatusText').textContent = 'Все';
+            } else {
+                usernameStatusFilter = 'for_sale';
+                document.getElementById('usernameStatusText').textContent = 'На продаже';
+            }
+            renderUsernamesList();
+        }
+        
+        function toggleUsernameSortFilter() {
+            if (usernameSortFilter === 'price_low') {
+                usernameSortFilter = 'price_high';
+                document.getElementById('usernameSortText').textContent = 'Цена: высокая';
+            } else {
+                usernameSortFilter = 'price_low';
+                document.getElementById('usernameSortText').textContent = 'Цена: низкая';
+            }
+            renderUsernamesList();
+        }
+        
+        // =============================================
+        // Номера +888 (аукцион)
+        // =============================================
+        let numbersData = [];
+        let numberStatusFilter = 'on_auction'; // for_sale, on_auction, all
+        let numberSortFilter = 'price_high'; // price_low, price_high
+        
+        function loadNumbersFromStorage() {
+            try {
+                const data = localStorage.getItem('jetstore_numbers');
+                if (data) {
+                    numbersData = JSON.parse(data);
+                } else {
+                    numbersData = [];
+                }
+            } catch (e) {
+                console.error('Ошибка загрузки номеров:', e);
+                numbersData = [];
+            }
+            renderNumbersList();
+        }
+        
+        function renderNumbersList() {
+            const container = document.getElementById('numbersList');
+            if (!container) return;
+            
+            let filtered = [...numbersData];
+            
+            // Фильтрация по поиску
+            const searchInput = document.getElementById('numberSearchInput');
+            if (searchInput && searchInput.value.trim()) {
+                const query = searchInput.value.trim().replace(/\D/g, '');
+                filtered = filtered.filter(n => n.number.replace(/\D/g, '').includes(query));
+            }
+            
+            // Фильтрация по статусу
+            if (numberStatusFilter === 'for_sale') {
+                filtered = filtered.filter(n => n.status === 'for_sale');
+            } else if (numberStatusFilter === 'on_auction') {
+                filtered = filtered.filter(n => n.status === 'on_auction');
+            }
+            
+            // Сортировка
+            if (numberSortFilter === 'price_low') {
+                filtered.sort((a, b) => a.minBid - b.minBid);
+            } else if (numberSortFilter === 'price_high') {
+                filtered.sort((a, b) => b.minBid - a.minBid);
+            }
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="auction-empty-state">
+                        <i class="fas fa-phone"></i>
+                        <p>Пока нет доступных номеров</p>
+                        <span>Следите за обновлениями</span>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filtered.map(n => `
+                <div class="auction-item" onclick="showNotification('Номер ${n.number} - мин. ставка ${n.minBid} TON')">
+                    <div class="auction-item-name">
+                        <span class="auction-item-title">${n.number}</span>
+                        <span class="auction-item-subtitle">${n.type || 'Resale'}</span>
+                    </div>
+                    <div class="auction-item-value">
+                        <div class="auction-item-price">
+                            <span class="ton-icon">💎</span>
+                            ${n.minBid.toLocaleString('ru-RU')}
+                        </div>
+                        <span class="auction-item-price-usd">~ $${(n.minBid * 1.53).toLocaleString('ru-RU')}</span>
+                    </div>
+                    <div class="auction-item-status">
+                        <span class="auction-status-badge ${n.status === 'on_auction' ? 'on-auction' : 'for-sale'}">
+                            ${n.status === 'on_auction' ? 'Аукцион' : 'Продажа'}
+                        </span>
+                        <span class="auction-item-time">${n.auctionEnds || 'Без ограничений'}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function filterNumbers() {
+            renderNumbersList();
+        }
+        
+        function toggleNumberStatusFilter() {
+            if (numberStatusFilter === 'on_auction') {
+                numberStatusFilter = 'for_sale';
+                document.getElementById('numberStatusText').textContent = 'На продаже';
+            } else if (numberStatusFilter === 'for_sale') {
+                numberStatusFilter = 'all';
+                document.getElementById('numberStatusText').textContent = 'Все';
+            } else {
+                numberStatusFilter = 'on_auction';
+                document.getElementById('numberStatusText').textContent = 'На аукционе';
+            }
+            renderNumbersList();
+        }
+        
+        function toggleNumberSortFilter() {
+            if (numberSortFilter === 'price_high') {
+                numberSortFilter = 'price_low';
+                document.getElementById('numberSortText').textContent = 'Цена: низкая';
+            } else {
+                numberSortFilter = 'price_high';
+                document.getElementById('numberSortText').textContent = 'Цена: высокая';
+            }
+            renderNumbersList();
+        }
+        
+        // Загружаем данные при переключении табов
+        const originalSwitchAssetsTab = switchAssetsTab;
+        switchAssetsTab = function(tabName) {
+            originalSwitchAssetsTab(tabName);
+            if (tabName === 'usernames') {
+                loadUsernamesFromStorage();
+            } else if (tabName === 'numbers') {
+                loadNumbersFromStorage();
+            }
+        };
+        
+        // Экспорт функций
+        window.filterUsernames = filterUsernames;
+        window.toggleUsernameStatusFilter = toggleUsernameStatusFilter;
+        window.toggleUsernameSortFilter = toggleUsernameSortFilter;
+        window.filterNumbers = filterNumbers;
+        window.toggleNumberStatusFilter = toggleNumberStatusFilter;
+        window.toggleNumberSortFilter = toggleNumberSortFilter;
+        window.loadUsernamesFromStorage = loadUsernamesFromStorage;
+        window.loadNumbersFromStorage = loadNumbersFromStorage;
+    </script>
+</body>
+</html>

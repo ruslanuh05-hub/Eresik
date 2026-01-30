@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Реферальная программа - JET</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(180deg, #000000 0%, #0a0a0a 30%, #1a1a1a 60%, #0f0f0f 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding-bottom: 100px;
+        }
+        
+        .referral-page-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+        }
+        
+        .referral-back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #ffffff;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .referral-back-btn:hover {
+            background: rgba(0, 212, 255, 0.3);
+        }
+        
+        .referral-page-title {
+            color: #ffffff;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        .referral-page-content {
+            padding: 20px;
+        }
+        
+        /* Заголовок с иконкой */
+        .referral-header-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .referral-header-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            box-shadow: 0 8px 25px rgba(255, 107, 53, 0.3);
+        }
+        
+        .referral-header-icon i {
+            font-size: 2.5rem;
+            color: #ffffff;
+        }
+        
+        .referral-header-title {
+            color: #ffffff;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .referral-header-subtitle {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+        
+        .referral-header-subtitle strong {
+            color: #00d4ff;
+            font-weight: 700;
+        }
+        
+        /* Статистика приглашенных друзей */
+        .referral-stats-block {
+            background: linear-gradient(135deg, rgba(30, 30, 46, 0.95) 0%, rgba(0, 0, 0, 0.9) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .referral-stats-number {
+            font-size: 4rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+        
+        .referral-stats-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1rem;
+        }
+        
+        /* Блок доходов */
+        .referral-earnings-block {
+            background: linear-gradient(135deg, rgba(30, 30, 46, 0.95) 0%, rgba(0, 0, 0, 0.9) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .referral-earnings-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+        
+        .referral-earnings-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .referral-earnings-left {
+            flex: 1;
+        }
+        
+        .referral-earnings-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .referral-earnings-title i {
+            color: #ff6b35;
+            font-size: 1.2rem;
+        }
+        
+        .referral-earnings-title strong {
+            color: #00d4ff;
+        }
+        
+        .referral-earnings-subtitle {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+        
+        .referral-earnings-amount {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .referral-earnings-amount .star-icon {
+            color: #ff6b35;
+            margin-right: 4px;
+        }
+        
+        .referral-earnings-right {
+            text-align: right;
+        }
+        
+        .referral-earnings-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+        
+        .referral-earnings-value {
+            color: #4ade80;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+        
+        /* Общий доход */
+        .referral-total-income {
+            background: linear-gradient(135deg, rgba(30, 30, 46, 0.95) 0%, rgba(0, 0, 0, 0.9) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .referral-total-label {
+            color: #ff6b35;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .referral-total-value {
+            color: #ffffff;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        
+        /* Реферальная ссылка */
+        .referral-link-section {
+            background: linear-gradient(135deg, rgba(30, 30, 46, 0.95) 0%, rgba(0, 0, 0, 0.9) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .referral-link-title {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+        
+        .referral-link-input {
+            background: rgba(10, 14, 39, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            padding: 14px 16px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            font-family: monospace;
+            width: 100%;
+            margin-bottom: 15px;
+            word-break: break-all;
+        }
+        
+        .referral-link-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .referral-link-btn {
+            flex: 1;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .referral-link-btn.copy {
+            background: rgba(30, 30, 46, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            color: #ffffff;
+        }
+        
+        .referral-link-btn.copy:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.4);
+        }
+        
+        .referral-link-btn.share {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: #ffffff;
+        }
+        
+        .referral-link-btn.share:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 107, 53, 0.4);
+        }
+        
+        /* Как это работает */
+        .referral-how-it-works {
+            margin-bottom: 30px;
+        }
+        
+        .referral-how-title {
+            color: #ffffff;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .referral-step {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: flex-start;
+        }
+        
+        .referral-step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 1.2rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        
+        .referral-step-content {
+            flex: 1;
+        }
+        
+        /* Нижняя навигация (как в других окнах) */
+        .profile-nav {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0;
+            right: 0;
+            width: 100%;
+            background: rgba(10, 14, 39, 0.25);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0 max(20px, env(safe-area-inset-bottom, 20px)) 0;
+            border-top: 1px solid rgba(0, 212, 255, 0.15);
+            z-index: 9999;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+            transform: none !important;
+            will-change: auto;
+        }
+        
+        @supports (padding: max(0px)) {
+            .profile-nav {
+                padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
+            }
+        }
+        
+        body:has(input:focus) .profile-nav,
+        body:has(textarea:focus) .profile-nav {
+            position: fixed !important;
+            bottom: 0 !important;
+            transform: none !important;
+        }
+        
+        .profile-nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            border: none;
+            padding: 8px 16px;
+            color: rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.7rem;
+            flex: 1;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+        
+        .profile-nav-btn:hover:not(.active) {
+            color: rgba(255, 255, 255, 0.7);
+            animation: navButtonFloat 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes navButtonFloat {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-3px);
+            }
+        }
+        
+        .profile-nav-btn i {
+            font-size: 1.4rem;
+        }
+        
+        .profile-nav-btn.active {
+            color: #00d4ff;
+        }
+        
+        .profile-nav-btn.active .nav-icon-wrapper {
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
+            border-radius: 12px;
+            padding: 8px;
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.5);
+        }
+        
+        .profile-nav-btn.active .nav-icon-wrapper i {
+            color: #ffffff;
+        }
+        
+        .nav-icon-wrapper {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .referral-step-title {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        
+        .referral-step-description {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        
+        /* Вкладки */
+        .referral-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .referral-tab {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            background: rgba(30, 30, 46, 0.5);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .referral-tab.active {
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 100%);
+            color: #ffffff;
+        }
+        
+        .referral-tab-content {
+            display: none;
+        }
+        
+        .referral-tab-content.active {
+            display: block;
+        }
+        
+        .referral-empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        
+        .referral-empty-icon {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(0, 212, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+        
+        .referral-empty-icon i {
+            font-size: 3rem;
+            color: rgba(0, 212, 255, 0.3);
+        }
+        
+        .referral-empty-text {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 1rem;
+        }
+        
+        /* Мобильная оптимизация */
+        @media (max-width: 768px) {
+            .referral-page-content {
+                padding: 15px;
+            }
+            
+            .referral-header-icon {
+                width: 70px;
+                height: 70px;
+            }
+            
+            .referral-header-icon i {
+                font-size: 2rem;
+            }
+            
+            .referral-header-title {
+                font-size: 1.5rem;
+            }
+            
+            .referral-stats-block {
+                padding: 25px;
+            }
+            
+            .referral-stats-number {
+                font-size: 3rem;
+            }
+            
+            .referral-earnings-block {
+                padding: 16px;
+            }
+            
+            .referral-total-income {
+                padding: 20px;
+            }
+            
+            .referral-total-value {
+                font-size: 2rem;
+            }
+            
+            .referral-link-section {
+                padding: 16px;
+            }
+            
+            .referral-link-buttons {
+                flex-direction: column;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .referral-stats-number {
+                font-size: 2.5rem;
+            }
+            
+            .referral-earnings-item {
+                flex-direction: column;
+            }
+            
+            .referral-earnings-right {
+                text-align: left;
+                margin-top: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="referral-page-header">
+        <button class="referral-back-btn" onclick="window.history.back()">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        <h1 class="referral-page-title">Реферальная программа</h1>
+    </div>
+    
+    <div class="referral-page-content">
+        <!-- Заголовок -->
+        <div class="referral-header-section">
+            <div class="referral-header-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <h2 class="referral-header-title">Пригласи друга</h2>
+            <p class="referral-header-subtitle">Получай <strong>4%</strong> от каждой покупки друга</p>
+        </div>
+        
+        <!-- Статистика приглашенных друзей -->
+        <div class="referral-stats-block">
+            <div class="referral-stats-number" id="referralsCount">0</div>
+            <div class="referral-stats-label">Приглашено друзей</div>
+        </div>
+        
+        <!-- Блок доходов (Звёзды) -->
+        <div class="referral-earnings-block">
+            <div class="referral-earnings-item">
+                <div class="referral-earnings-left">
+                    <div class="referral-earnings-title">
+                        <i class="fas fa-star"></i>
+                        <span>Звёзды <strong>(4%)</strong></span>
+                    </div>
+                    <div class="referral-earnings-subtitle">Куплено рефералами</div>
+                    <div class="referral-earnings-amount">
+                        <i class="fas fa-star star-icon"></i>
+                        <span id="referralStarsCount">0</span> ≈ <span id="referralStarsRub">0</span> ₽
+                    </div>
+                </div>
+                <div class="referral-earnings-right">
+                    <div class="referral-earnings-label">Твой доход</div>
+                    <div class="referral-earnings-value" id="referralStarsEarnings">+0 ₽</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Общий доход -->
+        <div class="referral-total-income">
+            <div class="referral-total-label">Общий доход</div>
+            <div class="referral-total-value" id="referralTotalEarnings">0 ₽</div>
+        </div>
+        
+        <!-- Реферальная ссылка -->
+        <div class="referral-link-section">
+            <h3 class="referral-link-title">Твоя реферальная ссылка</h3>
+            <div class="referral-link-input" id="referralLinkText">https://t.me/JetStoreApp_bot?start=ref_000000</div>
+            <div class="referral-link-buttons">
+                <button class="referral-link-btn copy" onclick="copyReferralLink()">
+                    <i class="fas fa-copy"></i>
+                    <span>Копировать</span>
+                </button>
+                <button class="referral-link-btn share" onclick="shareReferralLink()">
+                    <i class="fas fa-paper-plane"></i>
+                    <span>Поделиться</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Как это работает -->
+        <div class="referral-how-it-works">
+            <h3 class="referral-how-title">Как это работает</h3>
+            
+            <div class="referral-step">
+                <div class="referral-step-number">1</div>
+                <div class="referral-step-content">
+                    <div class="referral-step-title">Поделись ссылкой</div>
+                    <div class="referral-step-description">Отправь реферальную ссылку друзьям</div>
+                </div>
+            </div>
+            
+            <div class="referral-step">
+                <div class="referral-step-number">2</div>
+                <div class="referral-step-content">
+                    <div class="referral-step-title">Друг регистрируется</div>
+                    <div class="referral-step-description">Друг открывает приложение по твоей ссылке</div>
+                </div>
+            </div>
+            
+            <div class="referral-step">
+                <div class="referral-step-number">3</div>
+                <div class="referral-step-content">
+                    <div class="referral-step-title">Получай бонусы</div>
+                    <div class="referral-step-description">4% от каждой покупки друга начисляется тебе</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Вкладки -->
+        <div class="referral-tabs">
+            <button class="referral-tab active" onclick="switchReferralTab('friends')">Друзья (0)</button>
+            <button class="referral-tab" onclick="switchReferralTab('accruals')">Начисления</button>
+        </div>
+        
+        <!-- Контент вкладок -->
+        <div id="friendsTab" class="referral-tab-content active">
+            <div class="referral-empty-state">
+                <div class="referral-empty-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <p class="referral-empty-text">Пока нет приглашенных друзей</p>
+            </div>
+        </div>
+        
+        <div id="accrualsTab" class="referral-tab-content">
+            <div class="referral-empty-state">
+                <div class="referral-empty-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <p class="referral-empty-text">Пока нет начислений</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Нижняя навигация -->
+    <nav class="profile-nav">
+        <button class="profile-nav-btn" onclick="window.location.href='index.html'">
+            <div class="nav-icon-wrapper">
+                <i class="fas fa-home"></i>
+            </div>
+            <span>Главная</span>
+        </button>
+        <button class="profile-nav-btn active">
+            <div class="nav-icon-wrapper">
+                <i class="fas fa-coins"></i>
+            </div>
+            <span>Заработать</span>
+        </button>
+        <button class="profile-nav-btn" onclick="window.location.href='assets.html'">
+            <div class="nav-icon-wrapper">
+                <i class="fab fa-telegram-plane"></i>
+            </div>
+            <span>Активы</span>
+        </button>
+        <button class="profile-nav-btn" onclick="window.location.href='profile.html'">
+            <div class="nav-icon-wrapper">
+                <i class="fas fa-user"></i>
+            </div>
+            <span>Профиль</span>
+        </button>
+    </nav>
+    
+    <script src="config.js"></script>
+    <script src="database.js"></script>
+    <script>
+        // Загружаем данные пользователя
+        let userData = window.userData || {};
+        
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof Database !== 'undefined') {
+                Database.init();
+            }
+            // Загружаем username бота с сервера
+            const apiBase = window.JET_API_BASE || (typeof localStorage !== 'undefined' && localStorage.getItem('jet_api_base')) || window.location.origin;
+            fetch(apiBase + '/api/config').then(r => r.json()).then(c => {
+                if (c && c.bot_username) {
+                    window.JET_BOT_USERNAME = c.bot_username;
+                }
+            }).catch(() => {});
+            // Загружаем данные из localStorage
+            loadReferralData();
+        });
+        
+        function loadReferralData() {
+            try {
+                const savedUser = localStorage.getItem('jetstore_user_data');
+                if (savedUser) {
+                    const parsed = JSON.parse(savedUser);
+                    userData = parsed;
+                    window.userData = userData;
+                }
+                
+                // Обновляем отображение
+                updateReferralDisplay();
+            } catch (error) {
+                console.error('Ошибка загрузки данных:', error);
+            }
+        }
+        
+        function updateReferralDisplay() {
+            const referrals = userData.referrals || { count: 0, earnings: 0, starsCount: 0, starsEarnings: 0 };
+            
+            // Приглашено друзей
+            document.getElementById('referralsCount').textContent = referrals.count || 0;
+            
+            // Звёзды
+            const starsCount = referrals.starsCount || 0;
+            const starsRub = Math.round(starsCount * 1.37); // Примерный курс
+            document.getElementById('referralStarsCount').textContent = starsCount;
+            document.getElementById('referralStarsRub').textContent = starsRub;
+            document.getElementById('referralStarsEarnings').textContent = `+${referrals.starsEarnings || 0} ₽`;
+            
+            // Общий доход
+            const totalEarnings = (referrals.earnings || 0) + (referrals.starsEarnings || 0);
+            document.getElementById('referralTotalEarnings').textContent = `${totalEarnings} ₽`;
+            
+            // Реферальная ссылка
+            const userId = userData.id || '000000';
+            const botUsername = window.JET_BOT_USERNAME || 'JetStoreApp_bot';
+            const referralLink = `https://t.me/${botUsername}?start=ref_${userId}`;
+            document.getElementById('referralLinkText').textContent = referralLink;
+            
+            // Обновляем счетчик друзей во вкладке
+            const friendsTab = document.querySelector('.referral-tab[onclick*="friends"]');
+            if (friendsTab) {
+                friendsTab.textContent = `Друзья (${referrals.count || 0})`;
+            }
+        }
+        
+        function copyReferralLink() {
+            const linkText = document.getElementById('referralLinkText').textContent;
+            
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(linkText).then(() => {
+                    showNotification('Реферальная ссылка скопирована!', 'success');
+                }).catch(() => {
+                    copyToClipboardFallback(linkText);
+                });
+            } else {
+                copyToClipboardFallback(linkText);
+            }
+        }
+        
+        function copyToClipboardFallback(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showNotification('Реферальная ссылка скопирована!', 'success');
+            } catch (err) {
+                showNotification('Не удалось скопировать ссылку', 'error');
+            }
+            document.body.removeChild(textarea);
+        }
+        
+        function shareReferralLink() {
+            const linkText = document.getElementById('referralLinkText').textContent;
+            const tg = window.Telegram?.WebApp;
+            
+            if (tg && tg.openTelegramLink) {
+                // Открываем Telegram для отправки
+                const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(linkText)}&text=${encodeURIComponent('Присоединяйся к JET!')}`;
+                tg.openTelegramLink(shareUrl);
+            } else if (navigator.share) {
+                navigator.share({
+                    title: 'Реферальная ссылка JET',
+                    text: 'Присоединяйся к JET!',
+                    url: linkText
+                }).catch(() => {
+                    copyReferralLink();
+                });
+            } else {
+                copyReferralLink();
+            }
+        }
+        
+        function switchReferralTab(tabName) {
+            // Убираем активный класс со всех вкладок
+            document.querySelectorAll('.referral-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.querySelectorAll('.referral-tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Добавляем активный класс выбранной вкладке
+            if (tabName === 'friends') {
+                document.querySelector('.referral-tab[onclick*="friends"]').classList.add('active');
+                document.getElementById('friendsTab').classList.add('active');
+            } else if (tabName === 'accruals') {
+                document.querySelector('.referral-tab[onclick*="accruals"]').classList.add('active');
+                document.getElementById('accrualsTab').classList.add('active');
+            }
+        }
+        
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: ${type === 'success' ? '#4ade80' : type === 'error' ? '#ff4757' : '#00d4ff'};
+                color: white;
+                padding: 14px 24px;
+                border-radius: 12px;
+                font-size: 0.95rem;
+                font-weight: 600;
+                z-index: 10000;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+                animation: slideDown 0.3s ease;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideUp 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

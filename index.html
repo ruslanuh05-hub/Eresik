@@ -1,0 +1,5101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>JET - официальный бот</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Экран загрузки */
+        #splashScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #000000 0%, #0a0a0a 30%, #1a1a1a 60%, #0f0f0f 100%);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            animation: fadeOut 0.5s ease-out 3.5s forwards;
+        }
+        
+        .splash-background {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .splash-stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(2px 2px at 20% 30%, rgba(0, 212, 255, 0.4), transparent),
+                radial-gradient(2px 2px at 60% 70%, rgba(0, 212, 255, 0.4), transparent),
+                radial-gradient(1px 1px at 50% 50%, rgba(0, 212, 255, 0.3), transparent),
+                radial-gradient(1px 1px at 80% 10%, rgba(64, 224, 208, 0.3), transparent),
+                radial-gradient(2px 2px at 90% 80%, rgba(0, 212, 255, 0.4), transparent);
+            background-size: 200% 200%;
+            animation: twinkle 3s ease-in-out infinite;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        
+        .splash-logo {
+            position: relative;
+            z-index: 10;
+            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .splash-logo-icon {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 20px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .splash-logo-icon i {
+            font-size: 5rem;
+            color: #ffffff;
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.3));
+            animation: rocketTakeoffSplash 2s ease-in-out infinite;
+            transform-origin: center bottom;
+        }
+        
+        @keyframes rocketTakeoffSplash {
+            0% {
+                transform: translateY(0) rotate(0deg) scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: translateY(-15px) rotate(-8deg) scale(1.05);
+                opacity: 0.9;
+            }
+            100% {
+                transform: translateY(0) rotate(0deg) scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .splash-logo-icon svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.3));
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+        }
+        
+        .splash-title {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #ffffff;
+            text-align: center;
+            letter-spacing: 4px;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            margin-bottom: 30px;
+            animation: fadeInUp 1s ease-out;
+        }
+        
+        .splash-loader {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(0, 212, 255, 0.3);
+            border-top: 4px solid #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+            display: block;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+                visibility: hidden;
+            }
+        }
+        
+        /* Главное меню - темная фиолетово-голубая тема мессенджеров */
+        .main-menu-container {
+            display: none;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #000000 0%, #0a0a0a 30%, #1a1a1a 60%, #0f0f0f 100%);
+            color: #ffffff;
+        }
+        
+        .main-menu-container.active {
+            display: block;
+            padding-bottom: 80px;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Шапка магазина */
+        .store-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .store-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .store-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .store-logo i {
+            color: #ffffff;
+            font-size: 1.5rem;
+            animation: rocketTakeoff 2s ease-in-out infinite;
+            transform-origin: center bottom;
+        }
+        
+        @keyframes rocketTakeoff {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+            }
+            50% {
+                transform: translateY(-8px) rotate(-5deg);
+                opacity: 0.9;
+            }
+            100% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+            }
+        }
+        
+        .store-logo img {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+        }
+        
+        .store-title {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .store-title h1 {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        .store-title span {
+            color: #00d4ff;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .store-balance-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(76, 175, 80, 0.1) 100%);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            border-radius: 20px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .store-balance-btn:hover {
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.3) 0%, rgba(76, 175, 80, 0.2) 100%);
+        }
+        
+        .store-balance-btn i {
+            color: #4CAF50;
+            font-size: 0.9rem;
+        }
+        
+        .store-balance-btn span {
+            color: #ffffff;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        
+        /* Баланс в рублях */
+        .balance-rub-section {
+            padding: 12px 20px;
+            background: rgba(0, 212, 255, 0.08);
+        }
+        
+        .balance-rub-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.25) 0%, rgba(0, 212, 255, 0.15) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 20px;
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+        
+        .balance-rub-btn i {
+            color: #00d4ff;
+        }
+        
+        .balance-rub-btn span {
+            color: #ffffff;
+            font-weight: 600;
+        }
+        
+        /* Вкладки навигации */
+        .store-tabs {
+            display: flex;
+            padding: 0 20px;
+            margin: 16px 0;
+            gap: 8px;
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+        
+        .store-tab {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            border-radius: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .store-tab i {
+            font-size: 1.3rem;
+        }
+        
+        .store-tab span {
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .store-tab.active {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.8) 0%, rgba(118, 75, 162, 0.8) 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+        }
+        
+        .store-tab:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.8);
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        /* Индикатор страницы */
+        .page-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin: 16px 0;
+        }
+        
+        .page-dot {
+            width: 24px;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .page-dot.active {
+            background: linear-gradient(90deg, #00d4ff 0%, #00d4ff 100%);
+            width: 32px;
+        }
+        
+        /* Контент магазина */
+        .store-content {
+            padding: 0 20px;
+        }
+        
+        .store-section {
+            display: none;
+        }
+        
+        .store-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        /* Заголовок секции */
+        .section-title {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            color: #ffffff;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-align: center;
+        }
+        
+        .section-title i {
+            color: #00d4ff;
+            font-size: 1.5rem;
+            filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5));
+            animation: starTwinkle 2s ease-in-out infinite;
+        }
+        
+        @keyframes starTwinkle {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        
+        /* Карточки звёзд */
+        .stars-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .star-card {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(10, 10, 10, 0.9) 100%);
+            border: 2px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            padding: 24px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .star-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, rgba(0, 212, 255, 0.1) 50%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        
+        .star-card:hover {
+            border-color: rgba(0, 212, 255, 0.6);
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 12px 40px rgba(0, 212, 255, 0.4);
+            animation: cardFloat 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes cardFloat {
+            0%, 100% {
+                transform: translateY(-4px) scale(1.02);
+            }
+            50% {
+                transform: translateY(-7px) scale(1.02);
+            }
+        }
+        
+        .star-card:hover::before {
+            opacity: 1;
+        }
+        
+        .star-card.selected {
+            border-color: #00d4ff;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.2) 0%, rgba(0, 212, 255, 0.15) 100%);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.5), 0 8px 30px rgba(0, 212, 255, 0.4);
+            transform: scale(1.03);
+        }
+        
+        .star-card.selected::before {
+            opacity: 1;
+        }
+        
+        .star-card.full-width {
+            grid-column: span 2;
+            padding: 28px 20px;
+        }
+        
+        .star-card-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 6px 12px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+            z-index: 10;
+            letter-spacing: 0.5px;
+        }
+        
+        .star-card-amount {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        
+        .star-card-amount span {
+            color: #ffffff;
+            font-size: 2rem;
+            font-weight: 800;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .star-card-amount i {
+            color: #00d4ff;
+            font-size: 1.8rem;
+            filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.6));
+            animation: starPulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes starPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .star-card-price {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        /* Поле для своего количества */
+        .custom-stars-input {
+            background: linear-gradient(135deg, rgba(26, 26, 46, 0.9) 0%, rgba(22, 22, 42, 0.9) 100%);
+            border: 2px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            padding: 18px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .custom-stars-input::after {
+            content: '⭐';
+            font-size: 1.4rem;
+            opacity: 0.6;
+            filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.4));
+        }
+        
+        .custom-stars-input input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-size: 1.1rem;
+            padding: 8px 0;
+            font-weight: 500;
+        }
+        
+        .custom-stars-input input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .custom-stars-input input:focus {
+            outline: none;
+        }
+        
+        .custom-stars-input:focus-within {
+            border-color: rgba(0, 212, 255, 0.6);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+        
+        /* Информация о курсе */
+        .rate-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(0, 212, 255, 0.1) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 16px;
+            margin-bottom: 16px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .rate-info i {
+            color: #00d4ff;
+            font-size: 1.2rem;
+            filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.6));
+        }
+        
+        .rate-info span {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+        
+        .rate-info strong {
+            color: #00d4ff;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        
+        /* Оптовые скидки */
+        .discounts-info {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.12) 0%, rgba(0, 212, 255, 0.08) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .discounts-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        
+        .discounts-title i {
+            color: #00d4ff;
+            font-size: 1.1rem;
+        }
+        
+        .discount-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+            padding: 8px 0;
+        }
+        
+        .discount-item span.discount-percent {
+            color: #4CAF50;
+            font-weight: 700;
+            font-size: 1rem;
+            text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+        
+        /* Кнопка продолжить (компактная, мягкий тон) */
+        .continue-btn {
+            width: 100%;
+            padding: 14px 16px;
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 100%);
+            border: none;
+            border-radius: 14px;
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 18px rgba(78, 108, 245, 0.4);
+            letter-spacing: 0.3px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .continue-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .continue-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 40px rgba(0, 212, 255, 0.6);
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        .continue-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .continue-btn.deposit {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            box-shadow: 0 6px 25px rgba(76, 175, 80, 0.4);
+        }
+        
+        .continue-btn.deposit:hover {
+            box-shadow: 0 10px 40px rgba(76, 175, 80, 0.5);
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        .continue-btn.disabled {
+            opacity: 0.6;
+            box-shadow: none;
+            cursor: default;
+        }
+        
+        .continue-btn.disabled:hover {
+            transform: none;
+            box-shadow: none;
+            animation: none;
+        }
+        
+        /* Карточки премиума */
+        .premium-card {
+            background: linear-gradient(135deg, rgba(26, 26, 46, 0.9) 0%, rgba(22, 22, 42, 0.9) 100%);
+            border: 2px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 16px;
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            align-items: center;
+            gap: 20px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .premium-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        
+        .premium-card:hover {
+            border-color: rgba(0, 212, 255, 0.6);
+            transform: translateX(4px);
+            box-shadow: 0 8px 30px rgba(0, 212, 255, 0.3);
+            animation: premiumCardFloat 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes premiumCardFloat {
+            0%, 100% {
+                transform: translateX(4px) translateY(0);
+            }
+            50% {
+                transform: translateX(4px) translateY(-3px);
+            }
+        }
+        
+        .premium-card:hover::before {
+            opacity: 1;
+        }
+        
+        .premium-card.selected {
+            border-color: #00d4ff;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(0, 212, 255, 0.1) 100%);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.3), 0 8px 30px rgba(0, 212, 255, 0.3);
+            transform: translateX(6px) scale(1.02);
+        }
+        
+        .premium-card.selected::before {
+            opacity: 1;
+        }
+        
+        .premium-card-left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .premium-card-duration {
+            color: #ffffff;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .premium-card-badge {
+            position: absolute;
+            top: -6px;
+            right: 20px;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 6px 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+            z-index: 10;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        
+        .premium-card-price {
+            color: #ffffff;
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Дополнительные цены Premium (RUB + USD) */
+        .premium-card-prices {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+        }
+        
+        .premium-price-rub {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        
+        .premium-price-usd {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .premium-card-radio {
+            width: 26px;
+            height: 26px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            position: relative;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .premium-card.selected .premium-card-radio {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.15);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.6);
+        }
+        
+        /* Компактные карточки премиума (в 2 раза меньше) */
+        .premium-card-compact {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(10, 10, 10, 0.9) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .premium-card-compact:hover {
+            border-color: rgba(0, 212, 255, 0.5);
+            transform: translateX(2px);
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+        }
+        
+        .premium-card-compact.selected {
+            border-color: #00d4ff;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(64, 224, 208, 0.1) 100%);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.3), 0 4px 15px rgba(0, 212, 255, 0.2);
+            transform: translateX(3px) scale(1.01);
+        }
+        
+        .premium-card-compact .premium-card-duration {
+            font-size: 0.9rem;
+        }
+        
+        .premium-card-compact .premium-price-rub {
+            font-size: 0.85rem;
+        }
+        
+        .premium-card-compact .premium-price-usd {
+            font-size: 0.75rem;
+        }
+        
+        .premium-card-compact .premium-card-radio {
+            width: 18px;
+            height: 18px;
+            border-width: 2px;
+        }
+        
+        .premium-card-badge-compact {
+            position: absolute;
+            top: -4px;
+            right: 10px;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            font-size: 0.6rem;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.4);
+            z-index: 10;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        /* Превью пользователя (старый стиль, используется в TON/Premium) */
+        .user-preview {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Чип выбранного получателя (для покупки звёзд) */
+        .tg-user-chip {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border-radius: 12px;
+            background: rgba(17, 24, 39, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            margin-top: 8px;
+        }
+
+        .tg-user-chip-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tg-user-chip-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .tg-user-chip-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .tg-user-chip-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .tg-user-chip-remove {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 0.9rem;
+            transition: color 0.2s ease, transform 0.2s ease;
+        }
+
+        .tg-user-chip-remove:hover {
+            color: rgba(255, 255, 255, 0.9);
+            transform: scale(1.05);
+        }
+
+        .tg-user-error-text {
+            display: none;
+            margin-top: 6px;
+            font-size: 0.78rem;
+            color: #ff6b6b;
+        }
+
+        .tg-user-input-error .store-input {
+            border-color: rgba(255, 107, 107, 0.9);
+        }
+        
+        /* Общие поля формы магазина (премиум, звезды) */
+        .store-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        
+        .store-field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .store-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .store-input-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .store-input-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: rgba(22, 27, 51, 0.95);
+            border-radius: 14px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            padding: 0 14px;
+        }
+        
+        .store-input-icon {
+            color: rgba(255, 255, 255, 0.5);
+            margin-right: 10px;
+        }
+        
+        .store-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            outline: none;
+            padding: 12px 0;
+            color: #ffffff;
+            font-size: 0.95rem;
+        }
+        
+        .store-input::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+        
+        .store-input-action {
+            border: none;
+            background: none;
+            color: #4e8cff;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        .store-field-hint {
+            color: rgba(255, 255, 255, 0.45);
+            font-size: 0.8rem;
+        }
+        
+        .store-price-summary {
+            background: rgba(22, 27, 51, 0.95);
+            border-radius: 16px;
+            border: 1px solid rgba(0, 212, 255, 0.15);
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .store-price-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.95rem;
+            color: #ffffff;
+        }
+        
+        .store-price-line.secondary {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+        }
+        
+        .store-promo-link {
+            text-align: center;
+            color: #4e8cff;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 4px;
+        }
+
+        /* Окно продажи звёзд */
+        .sell-popup-content {
+            background: linear-gradient(180deg, #000000 0%, #0a0a0a 40%, #0f0f0f 100%);
+            border-radius: 24px;
+            max-width: 480px;
+            width: 100%;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+        }
+        
+        .sell-popup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        
+        .sell-popup-title {
+            color: #ffffff;
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+        
+        .sell-popup-body {
+            padding: 18px 20px 22px 20px;
+            overflow-y: auto;
+            max-height: calc(90vh - 70px);
+        }
+        
+        .sell-methods {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        
+        .sell-method-btn {
+            flex: 1;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(22, 27, 51, 0.95);
+            padding: 10px 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 0.8rem;
+        }
+        
+        .sell-method-btn i {
+            font-size: 1.3rem;
+        }
+        
+        .sell-method-btn.active {
+            border-color: rgba(0, 212, 255, 0.7);
+            background: linear-gradient(135deg, #1b2144 0%, #1f2b57 100%);
+            color: #ffffff;
+            box-shadow: 0 8px 24px rgba(0, 212, 255, 0.25);
+        }
+        
+        .sell-limit-info {
+            margin-top: 6px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.8rem;
+        }
+        
+        .sell-buy-rate {
+            margin-top: 4px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.8rem;
+        }
+        
+        .sell-summary {
+            margin-top: 10px;
+            background: rgba(22, 27, 51, 0.95);
+            border-radius: 14px;
+            border: 1px solid rgba(0, 212, 255, 0.15);
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .sell-summary-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: #ffffff;
+        }
+        
+        .sell-summary-line.secondary {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+        }
+        
+        .sell-note {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .sell-note a {
+            color: #4e8cff;
+            text-decoration: underline;
+        }
+        
+        /* Окно подтверждения продажи */
+        .sell-confirm-body {
+            padding: 22px 20px 20px 20px;
+            text-align: center;
+        }
+        
+        .sell-confirm-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at 30% 0%, #ffffff55, transparent 60%), linear-gradient(135deg, #00d4ff 0%, #00d4ff 100%);
+            box-shadow: 0 12px 30px rgba(0, 212, 255, 0.4);
+            color: #fff;
+            font-size: 1.8rem;
+        }
+        
+        .sell-confirm-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+        
+        .sell-confirm-text {
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.75);
+            margin-bottom: 18px;
+        }
+        
+        @media (max-width: 480px) {
+            .sell-popup-content {
+                max-width: 100%;
+                width: 100%;
+                height: 100dvh;
+                max-height: 100dvh;
+                border-radius: 0;
+            }
+            
+            .sell-popup-header {
+                padding: 14px 14px;
+            }
+            
+            .sell-popup-body {
+                padding: 14px 14px 110px 14px; /* отступ под нижний навбар и кнопку */
+                max-height: calc(100dvh - 70px);
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .sell-methods {
+                gap: 6px;
+            }
+            
+            .sell-method-btn {
+                padding: 8px 4px;
+                font-size: 0.75rem;
+            }
+            
+            .store-input {
+                font-size: 0.9rem;
+            }
+            
+            .store-label {
+                font-size: 0.85rem;
+            }
+            
+            /* Мобильная оптимизация для Premium попапа */
+            #premiumPopup .supercell-popup-content {
+                height: 100dvh;
+                max-height: 100dvh;
+                border-radius: 0;
+            }
+            
+            #premiumPopup .steam-popup-body {
+                padding: 14px 14px 110px 14px;
+                max-height: calc(100dvh - 70px);
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .premium-card-compact {
+                padding: 10px;
+                margin-bottom: 6px;
+                gap: 8px;
+            }
+            
+            .premium-card-compact .premium-card-duration {
+                font-size: 0.8rem;
+            }
+            
+            .premium-card-compact .premium-price-rub {
+                font-size: 0.75rem;
+            }
+            
+            .premium-card-compact .premium-price-usd {
+                font-size: 0.65rem;
+            }
+        }
+        
+        .premium-card.selected .premium-card-radio::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 12px;
+            height: 12px;
+            background: linear-gradient(135deg, #00d4ff 0%, #00d4ff 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.9);
+        }
+        
+        /* Нижняя навигация - закреплена поверх всего */
+        .main-bottom-nav {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0;
+            right: 0;
+            width: 100%;
+            background: rgba(10, 14, 39, 0.25);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0 max(20px, env(safe-area-inset-bottom, 20px)) 0;
+            border-top: 1px solid rgba(0, 212, 255, 0.15);
+            z-index: 9999;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+            /* Исправление для клавиатуры - не поднимается при открытии */
+            transform: none !important;
+            will-change: auto;
+        }
+        
+        /* Предотвращение изменения позиции при открытии клавиатуры */
+        @supports (padding: max(0px)) {
+            .main-bottom-nav {
+                padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
+            }
+        }
+        
+        /* Дополнительная защита от изменения позиции */
+        body:has(input:focus) .main-bottom-nav,
+        body:has(textarea:focus) .main-bottom-nav {
+            position: fixed !important;
+            bottom: 0 !important;
+            transform: none !important;
+        }
+        
+        .main-nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+            padding: 8px 16px;
+            transition: all 0.3s ease;
+            flex: 1;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+        
+        .main-nav-btn:hover:not(.active) {
+            color: rgba(255, 255, 255, 0.7);
+            animation: navButtonFloat 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes navButtonFloat {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-3px);
+            }
+        }
+        
+        .main-nav-btn i {
+            font-size: 1.4rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .main-nav-btn:hover i {
+            transform: scale(1.1);
+        }
+        
+        .main-nav-btn.active {
+            color: #00d4ff;
+        }
+        
+        .main-nav-btn.active .nav-icon-bg {
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
+            border-radius: 12px;
+            padding: 8px;
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.5);
+            animation: pulseGlow 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulseGlow {
+            0%, 100% {
+                box-shadow: 0 4px 20px rgba(0, 212, 255, 0.5);
+            }
+            50% {
+                box-shadow: 0 4px 25px rgba(0, 212, 255, 0.7);
+            }
+        }
+        
+        .nav-icon-bg {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .main-nav-btn.active .nav-icon-bg i {
+            color: #ffffff;
+        }
+        
+        .nav-icon-bg {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        /* Анимации для уведомлений */
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+        }
+        
+        /* Главное меню с карточками */
+        .main-menu-view {
+            display: block;
+        }
+        
+        .main-menu-view.hidden {
+            display: none;
+        }
+        
+        .store-view {
+            display: none;
+        }
+        
+        .store-view.active {
+            display: block;
+        }
+        
+        /* Маркет */
+        .market-view {
+            min-height: 100vh;
+            background: linear-gradient(180deg, #000000 0%, #0a0a0a 30%, #1a1a1a 60%, #0f0f0f 100%);
+            padding-bottom: 100px;
+        }
+        
+        .market-cards-scroll {
+            display: flex;
+            gap: 15px;
+            padding: 20px;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .market-cards-scroll::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .market-card {
+            min-width: 280px;
+            height: 150px;
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            scroll-snap-align: start;
+        }
+        
+        .market-card:active {
+            transform: scale(0.98);
+        }
+        
+        .market-card-bg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(10, 10, 10, 0.9) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .market-card.steam-card .market-card-bg {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(30, 30, 46, 0.9) 100%);
+        }
+        
+        .market-card.survey-card .market-card-bg {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(10, 10, 10, 0.9) 100%);
+        }
+        
+        .survey-bg {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .market-card-text {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            right: 15px;
+            color: #ffffff;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-align: left;
+        }
+        
+        .market-section {
+            padding: 20px;
+            margin-top: 10px;
+        }
+        
+        .market-section-title {
+            color: #ffffff;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .service-card {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(10, 10, 10, 0.9) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            backdrop-filter: blur(10px);
+        }
+        
+        .service-info {
+            flex: 1;
+        }
+        
+        .service-title {
+            color: #ffffff;
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .service-description {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        
+        .service-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .service-tag {
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .service-tag.active {
+            background: linear-gradient(135deg, #00d4ff 0%, #00d4ff 100%);
+            border: none;
+            color: #ffffff;
+        }
+        
+        .service-price {
+            text-align: right;
+            margin-left: 15px;
+        }
+        
+        .service-price-main {
+            color: #ffffff;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .service-price-old {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.9rem;
+            text-decoration: line-through;
+        }
+        
+        .game-card {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(10, 10, 10, 0.9) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .game-card:active {
+            transform: scale(0.98);
+            border-color: rgba(0, 212, 255, 0.4);
+        }
+        
+        .game-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            overflow: hidden;
+        }
+        
+        .game-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 12px;
+        }
+        
+        .game-icon.steam-icon {
+            background: #000000;
+            border: 2px solid #ffffff;
+        }
+        
+        .game-icon.steam-icon i {
+            color: #ffffff;
+            font-size: 1.5rem;
+        }
+        
+        .game-icon.brawlstars-icon,
+        .game-icon.clashroyale-icon,
+        .game-icon.clashofclans-icon,
+        .game-icon.standoff2-icon,
+        .game-icon.pubgmobile-icon {
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        
+        .game-icon.brawlstars-icon img,
+        .game-icon.clashroyale-icon img,
+        .game-icon.clashofclans-icon img,
+        .game-icon.standoff2-icon img,
+        .game-icon.pubgmobile-icon img {
+            border-radius: 12px;
+        }
+        
+        .game-icon.ea-icon {
+            background: #000000;
+        }
+        
+        .game-icon.ps-icon {
+            background: #003087;
+        }
+        
+        .game-info {
+            flex: 1;
+        }
+        
+        .game-title {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .game-description {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+        }
+        
+        /* Базовые стили для попапов */
+        .popup {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .popup.active {
+            display: flex;
+        }
+        
+        /* Попап Supercell на весь экран */
+        #supercellGamesPopup.popup {
+            padding: 0;
+            align-items: stretch;
+            justify-content: stretch;
+        }
+        
+        #supercellGamesPopup.popup.active {
+            display: flex;
+        }
+        
+        /* Попап пополнения Steam — отдельное окно */
+        #steamTopupPopup.popup {
+            padding: 0;
+            align-items: stretch;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(12px);
+        }
+        
+        .steam-topup-window {
+            background-image: url('assets/steam-background.png');
+            background-position: center;
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-color: #0f1419;
+            position: relative;
+            border-radius: 0;
+            width: 100%;
+            max-width: 480px;
+            margin: auto;
+            max-height: 95vh;
+            overflow-y: auto;
+            box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.15), 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 80px rgba(28, 128, 199, 0.15);
+            position: relative;
+        }
+        
+        .steam-topup-window::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                linear-gradient(165deg, rgba(15, 20, 25, 0.88) 0%, rgba(27, 40, 56, 0.88) 25%, rgba(23, 26, 33, 0.88) 50%, rgba(15, 20, 25, 0.88) 100%),
+                radial-gradient(ellipse 80% 100% at 50% -20%, rgba(28, 128, 199, 0.15) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .steam-topup-header,
+        .steam-topup-form {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .steam-topup-header {
+            position: relative;
+            padding: 20px 20px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .steam-topup-back {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.25s ease;
+        }
+        
+        .steam-topup-back:active {
+            transform: scale(0.95);
+        }
+        
+        .steam-topup-back:hover {
+            background: rgba(28, 128, 199, 0.2);
+            border-color: rgba(28, 128, 199, 0.4);
+        }
+        
+        .steam-topup-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .steam-topup-logo-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #1b2838 0%, #2a475e 100%);
+            border: 1px solid rgba(28, 128, 199, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            color: #66c0f4;
+        }
+        
+        .steam-topup-logo-text {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.02em;
+        }
+        
+        .steam-topup-logo-text span { color: #66c0f4; }
+        
+        .steam-topup-form {
+            position: relative;
+            padding: 0 20px 100px 20px;
+            min-height: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .steam-topup-actions {
+            flex-shrink: 0;
+        }
+        
+        .steam-topup-legal {
+            margin-top: 20px;
+            padding-top: 20px;
+            padding-bottom: 20px;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .steam-topup-card {
+            background: rgba(23, 26, 33, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 18px;
+            padding: 22px;
+            margin-bottom: 18px;
+        }
+        
+        .steam-topup-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .steam-topup-label span {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+        
+        .steam-topup-hint {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.8rem;
+        }
+        
+        .steam-topup-input-wrap {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.35);
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 0 16px;
+            transition: all 0.25s ease;
+        }
+        
+        .steam-topup-input-wrap:focus-within {
+            border-color: rgba(102, 192, 244, 0.5);
+            box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
+        }
+        
+        .steam-topup-input-wrap .fa-user, .steam-topup-input-wrap .steam-currency-icon {
+            color: rgba(255, 255, 255, 0.45);
+            margin-right: 12px;
+            font-size: 1rem;
+        }
+        
+        .steam-topup-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 1.05rem;
+            padding: 16px 0;
+            outline: none;
+        }
+        
+        .steam-topup-input::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+        
+        .steam-topup-clear {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+            padding: 6px;
+        }
+        
+        .steam-topup-presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        
+        .steam-topup-preset {
+            padding: 10px 18px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.25);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .steam-topup-preset:hover, .steam-topup-preset:active {
+            background: rgba(102, 192, 244, 0.15);
+            border-color: rgba(102, 192, 244, 0.35);
+            color: #66c0f4;
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        .steam-topup-conversion {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+            line-height: 1.45;
+            margin-top: 14px;
+        }
+        
+        .steam-topup-input-group { margin-bottom: 20px; }
+        .steam-topup-input-group:last-of-type { margin-bottom: 0; }
+
+        .steam-currency-switcher {
+            display: flex;
+            gap: 8px;
+            margin: 8px 0 4px 0;
+        }
+
+        .steam-currency-btn {
+            flex: 1;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(0, 0, 0, 0.4);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .steam-currency-btn.active {
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 100%);
+            color: #000;
+            border-color: rgba(0, 212, 255, 0.6);
+        }
+        
+        .steam-topup-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        
+        .steam-topup-btn {
+            width: 100%;
+            padding: 18px 24px;
+            border-radius: 14px;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.25s ease;
+        }
+        
+        .steam-topup-btn:active { transform: scale(0.98); }
+        
+        .steam-topup-btn.payment {
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #20b2aa 100%);
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
+        }
+        
+        .steam-topup-btn.payment:hover {
+            box-shadow: 0 6px 28px rgba(0, 212, 255, 0.5);
+            animation: buttonFloat 1.5s ease-in-out infinite;
+        }
+        
+        .steam-topup-legal {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.72rem;
+            line-height: 1.5;
+            text-align: center;
+            margin-top: 22px;
+            padding-bottom: 10px;
+            flex-shrink: 0;
+            word-wrap: break-word;
+            white-space: normal;
+        }
+        
+        .steam-topup-legal a {
+            color: #66c0f4;
+            text-decoration: underline;
+        }
+        
+        /* Общие стили для других попапов (steam-popup-*) */
+        .steam-popup-content {
+            background: rgba(30, 30, 46, 0.98);
+            border-radius: 20px;
+            max-width: 100%;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .steam-popup-header {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+        }
+        
+        .steam-back-btn {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 8px;
+            margin-right: 15px;
+        }
+        
+        .steam-popup-title {
+            color: #ffffff;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        .steam-popup-body {
+            padding: 20px;
+        }
+        
+        .steam-input-group { margin-bottom: 20px; }
+        .steam-input-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .steam-input-label span:first-child { color: rgba(255, 255, 255, 0.8); font-size: 0.9rem; }
+        .steam-input-hint { color: rgba(255, 255, 255, 0.5); font-size: 0.8rem; }
+        .steam-input-wrapper { display: flex; align-items: center; background: rgba(30, 30, 46, 0.8); border: 2px solid rgba(0, 212, 255, 0.2); border-radius: 12px; padding: 0 16px; transition: border-color 0.3s ease; }
+        .steam-input-wrapper:focus-within { border-color: rgba(0, 212, 255, 0.5); }
+        .steam-input-icon { color: rgba(255, 255, 255, 0.5); margin-right: 12px; }
+        .steam-currency-icon { color: rgba(255, 255, 255, 0.5); margin-right: 12px; font-weight: 600; }
+        
+        /* Окно выбора способа оплаты */
+        .payment-category {
+            margin-bottom: 30px;
+        }
+        
+        .payment-method-body {
+            max-height: calc(90vh - 80px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .payment-waiting-body {
+            max-height: calc(90vh - 80px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .payment-category-title {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+        }
+        
+        .payment-methods-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .payment-method-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 16px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(10, 10, 10, 0.9) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        .payment-method-item:hover {
+            border-color: rgba(0, 212, 255, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.3);
+        }
+        
+        .payment-method-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+        
+        .payment-method-info {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .payment-method-name {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .payment-method-bonus {
+            background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 100%);
+            color: #ffffff;
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 12px;
+        }
+        
+        /* Экран ожидания оплаты */
+        .payment-waiting-icon {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            color: rgba(0, 212, 255, 0.8);
+            animation: hourglassSpin 2s ease-in-out infinite;
+        }
+        
+        @keyframes hourglassSpin {
+            0%, 100% {
+                transform: rotate(0deg);
+            }
+            50% {
+                transform: rotate(180deg);
+            }
+        }
+        
+        .payment-waiting-title {
+            color: #ffffff;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+        
+        .payment-waiting-description {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+        }
+        
+        .payment-waiting-details {
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .payment-detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .payment-detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .payment-detail-row.total {
+            border-top: 2px solid rgba(0, 212, 255, 0.3);
+            border-bottom: 2px solid rgba(0, 212, 255, 0.3);
+            margin: 10px 0;
+            padding: 15px 0;
+        }
+        
+        .payment-detail-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.95rem;
+        }
+        
+        .payment-detail-value {
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .payment-detail-row.total .payment-detail-value {
+            font-size: 1.2rem;
+            color: #00d4ff;
+        }
+        
+        .payment-detail-value.status {
+            color: #00d4ff;
+        }
+        
+        .payment-waiting-btn {
+            width: 100%;
+            padding: 18px;
+            border-radius: 14px;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+        }
+        
+        .payment-waiting-btn.primary {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 20px rgba(76, 175, 80, 0.4);
+        }
+        
+        .payment-waiting-btn.primary:hover {
+            box-shadow: 0 6px 30px rgba(76, 175, 80, 0.6);
+            transform: translateY(-2px);
+        }
+        
+        .payment-waiting-btn.secondary {
+            background: transparent;
+            color: rgba(0, 212, 255, 0.9);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+        
+        .payment-waiting-btn.secondary:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.5);
+        }
+        
+        .payment-waiting-hint {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.9rem;
+            margin: 15px 0;
+        }
+        
+        /* Мобильная оптимизация для окон оплаты */
+        @media (max-width: 480px) {
+            /* Окно выбора способа оплаты */
+            .payment-category {
+                margin-bottom: 20px;
+            }
+            
+            .payment-category-title {
+                font-size: 0.8rem;
+                margin-bottom: 12px;
+            }
+            
+            .payment-method-item {
+                padding: 14px 12px;
+                gap: 12px;
+            }
+            
+            .payment-method-icon {
+                width: 44px;
+                height: 44px;
+                font-size: 1.3rem;
+                border-radius: 10px;
+            }
+            
+            .payment-method-name {
+                font-size: 0.95rem;
+            }
+            
+            .payment-method-bonus {
+                font-size: 0.75rem;
+                padding: 3px 10px;
+                border-radius: 10px;
+            }
+            
+            .payment-method-body {
+                padding: 15px !important;
+            }
+            
+            /* Экран ожидания оплаты */
+            .payment-waiting-icon {
+                width: 100px;
+                height: 100px;
+                font-size: 3.5rem;
+                margin-bottom: 25px;
+            }
+            
+            .payment-waiting-title {
+                font-size: 1.5rem;
+                margin-bottom: 12px;
+            }
+            
+            .payment-waiting-description {
+                font-size: 1rem;
+                margin-bottom: 25px;
+                padding: 0 10px;
+            }
+            
+            .payment-waiting-details {
+                padding: 16px;
+                margin-bottom: 20px;
+                border-radius: 14px;
+            }
+            
+            .payment-detail-row {
+                padding: 10px 0;
+            }
+            
+            .payment-detail-row.total {
+                margin: 8px 0;
+                padding: 12px 0;
+            }
+            
+            .payment-detail-label {
+                font-size: 0.85rem;
+            }
+            
+            .payment-detail-value {
+                font-size: 0.9rem;
+            }
+            
+            .payment-detail-row.total .payment-detail-value {
+                font-size: 1.1rem;
+            }
+            
+            .payment-waiting-btn {
+                padding: 16px;
+                font-size: 1rem;
+                margin-bottom: 10px;
+                border-radius: 12px;
+            }
+            
+            .payment-waiting-hint {
+                font-size: 0.85rem;
+                margin: 12px 0;
+            }
+            
+            .payment-waiting-body {
+                padding: 25px 15px !important;
+            }
+            
+            .payment-method-body {
+                padding: 15px !important;
+            }
+        }
+        
+        @media (max-width: 360px) {
+            /* Очень маленькие экраны */
+            .payment-category {
+                margin-bottom: 18px;
+            }
+            
+            .payment-category-title {
+                font-size: 0.75rem;
+                margin-bottom: 10px;
+            }
+            
+            .payment-method-item {
+                padding: 12px 10px;
+                gap: 10px;
+            }
+            
+            .payment-method-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 1.2rem;
+            }
+            
+            .payment-method-name {
+                font-size: 0.9rem;
+            }
+            
+            .payment-method-bonus {
+                font-size: 0.7rem;
+                padding: 2px 8px;
+            }
+            
+            .payment-waiting-icon {
+                width: 90px;
+                height: 90px;
+                font-size: 3rem;
+                margin-bottom: 20px;
+            }
+            
+            .payment-waiting-title {
+                font-size: 1.3rem;
+                margin-bottom: 10px;
+            }
+            
+            .payment-waiting-description {
+                font-size: 0.9rem;
+                margin-bottom: 20px;
+            }
+            
+            .payment-waiting-details {
+                padding: 14px;
+                margin-bottom: 18px;
+            }
+            
+            .payment-detail-row {
+                padding: 8px 0;
+            }
+            
+            .payment-detail-label {
+                font-size: 0.8rem;
+            }
+            
+            .payment-detail-value {
+                font-size: 0.85rem;
+            }
+            
+            .payment-detail-row.total .payment-detail-value {
+                font-size: 1rem;
+            }
+            
+            .payment-waiting-btn {
+                padding: 14px;
+                font-size: 0.95rem;
+            }
+            
+            .payment-waiting-body {
+                padding: 20px 12px !important;
+            }
+            
+            .payment-method-body {
+                padding: 12px !important;
+            }
+        }
+        
+        /* Окно Активы - табы */
+        .assets-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        
+        .assets-tabs::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .assets-tab {
+            flex: 1;
+            min-width: fit-content;
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            white-space: nowrap;
+        }
+        
+        .assets-tab:hover {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .assets-tab.active {
+            color: #ffffff;
+            font-weight: 600;
+        }
+        
+        .assets-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4ff 0%, #00d4ff 100%);
+        }
+        
+        .assets-tab-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #00d4ff 0%, #00d4ff 100%);
+            color: #ffffff;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 6px;
+        }
+        
+        .assets-content {
+            display: none;
+        }
+        
+        .assets-content.active {
+            display: block;
+        }
+        
+        .assets-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        
+        .asset-card {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(10, 10, 10, 0.9) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 120px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .asset-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .asset-card:hover::before {
+            opacity: 1;
+        }
+        
+        .asset-card:hover {
+            border-color: rgba(0, 212, 255, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.2);
+        }
+        
+        .asset-card:active {
+            transform: translateY(0);
+        }
+        
+        .asset-icon {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .asset-title {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .assets-tabs {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .assets-tab {
+                padding: 10px 16px;
+                font-size: 0.9rem;
+            }
+            
+            .assets-grid {
+                gap: 12px;
+            }
+            
+            .asset-card {
+                padding: 16px;
+                min-height: 100px;
+            }
+            
+            .asset-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 1.5rem;
+            }
+            
+            .asset-title {
+                font-size: 0.85rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .assets-tab {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+            }
+            
+            .assets-tab-badge {
+                font-size: 0.65rem;
+                padding: 1px 6px;
+            }
+            
+            .assets-grid {
+                gap: 10px;
+            }
+            
+            .asset-card {
+                padding: 14px;
+                min-height: 90px;
+            }
+            
+            .asset-icon {
+                width: 35px;
+                height: 35px;
+                font-size: 1.3rem;
+            }
+            
+            .asset-title {
+                font-size: 0.8rem;
+            }
+        }
+        .steam-input { flex: 1; background: transparent; border: none; color: #ffffff; font-size: 1.1rem; padding: 16px 0; outline: none; }
+        .steam-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+        .steam-input-clear { background: none; border: none; color: rgba(255, 255, 255, 0.5); cursor: pointer; padding: 8px; margin-left: 8px; }
+        .steam-conversion-info { color: rgba(255, 255, 255, 0.6); font-size: 0.85rem; margin-bottom: 20px; line-height: 1.4; }
+        .steam-pay-btn { width: 100%; padding: 18px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: 700; color: #fff; cursor: pointer; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.3s ease; }
+        .steam-pay-btn.balance-btn { background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3); }
+        .steam-pay-btn.balance-btn:active { transform: scale(0.98); }
+        .steam-pay-btn.sbp-btn { background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #00d4ff 100%); box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3); }
+        .steam-pay-btn.sbp-btn:active { transform: scale(0.98); }
+        .steam-legal-text { color: rgba(255, 255, 255, 0.5); font-size: 0.75rem; line-height: 1.5; text-align: center; margin-top: 20px; }
+        .steam-legal-link { color: #00d4ff; text-decoration: underline; }
+        
+        /* Стили для Supercell - попап на весь экран */
+        .supercell-popup-content {
+            background: linear-gradient(180deg, #000000 0%, #0a0a0a 30%, #1a1a1a 60%, #0f0f0f 100%);
+            border-radius: 0;
+            max-width: 100%;
+            width: 100%;
+            height: 100vh;
+            max-height: 100vh;
+            overflow-y: auto;
+            border: none;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .supercell-games-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            padding: 20px;
+            flex: 1;
+        }
+        
+        .supercell-game-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 40px 24px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(10, 10, 10, 0.9) 100%);
+            border: 2px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+            min-height: 200px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .supercell-game-item::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .supercell-game-item:hover::before {
+            opacity: 1;
+        }
+        
+        .supercell-game-item:hover {
+            border-color: rgba(0, 212, 255, 0.5);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+            animation: cardFloat 1.5s ease-in-out infinite;
+        }
+        
+        .supercell-game-item:active {
+            transform: translateY(-1px);
+        }
+        
+        .supercell-game-item::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, rgba(0, 212, 255, 0.1) 50%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .supercell-game-item:hover::before {
+            opacity: 1;
+        }
+        
+        .supercell-game-item:active {
+            transform: scale(0.95);
+            border-color: rgba(0, 212, 255, 0.5);
+        }
+        
+        .supercell-game-item:hover {
+            border-color: rgba(0, 212, 255, 0.4);
+            box-shadow: 0 8px 30px rgba(0, 212, 255, 0.3);
+            transform: translateY(-4px);
+        }
+        
+        /* Brawl Stars на всю ширину (3-й элемент) */
+        .supercell-game-item.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .supercell-game-icon {
+            width: 100px;
+            height: 100px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 3rem;
+            flex-shrink: 0;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .supercell-game-info {
+            text-align: center;
+            width: 100%;
+        }
+        
+        .supercell-game-info h3 {
+            color: #ffffff;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .supercell-game-info p {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1.1rem;
+            margin: 0;
+        }
+        
+        .supercell-products-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .supercell-product-item {
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        
+        .supercell-product-item:active {
+            transform: scale(0.98);
+        }
+        
+        .supercell-product-info {
+            flex: 1;
+        }
+        
+        .supercell-product-name {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .supercell-product-price {
+            color: #00d4ff;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        
+        .supercell-product-buy {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%);
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .supercell-product-buy:active {
+            transform: scale(0.95);
+        }
+        
+        .supercell-product-buy:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Старые стили для совместимости */
+        .main-header {
+            display: none;
+        }
+        
+        .main-profile-section {
+            display: none;
+        }
+
+        .main-profile-details p {
+            color: #888;
+            font-size: 0.9rem;
+            margin: 0;
+        }
+        
+        .main-profile-settings {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 1.3rem;
+            cursor: pointer;
+            padding: 8px;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+        
+        .main-profile-settings:hover {
+            opacity: 1;
+        }
+        
+        /* Карточки главного меню */
+        .main-menu-cards {
+            padding: 16px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            position: relative;
+        }
+        
+        .main-menu-card > * {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .main-menu-card {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(10, 10, 10, 0.9) 100%);
+            border-radius: 14px;
+            padding: 14px 16px 16px 16px;
+            min-height: 95px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid rgba(0, 212, 255, 0.15);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            isolation: isolate;
+        }
+        
+        .main-menu-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
+            border-color: rgba(0, 212, 255, 0.4);
+        }
+        
+        .main-menu-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, rgba(0, 212, 255, 0.1) 50%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .main-menu-card:hover::before {
+            opacity: 1;
+        }
+        
+        .main-menu-card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 4px;
+            line-height: 1.25;
+            padding-right: 0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            position: relative;
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        .main-menu-card-subtitle {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 0;
+            line-height: 1.2;
+            padding-right: 0;
+            position: relative;
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        .main-menu-card-icons {
+            display: flex;
+            gap: 10px;
+            position: absolute;
+            bottom: 14px;
+            right: 14px;
+            z-index: 1;
+            align-items: center;
+            pointer-events: none;
+        }
+        
+        .main-menu-card-icons img {
+            display: block;
+            z-index: 1;
+            flex-shrink: 0;
+            pointer-events: none;
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+        
+        .main-menu-card-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            position: relative;
+            z-index: 1;
+            flex-shrink: 0;
+            pointer-events: none;
+        }
+
+        /* Окно покупки TON */
+        .ton-popup-content {
+            background: linear-gradient(180deg, #000000 0%, #05070a 40%, #050b12 100%);
+            max-width: 460px;
+            width: 100%;
+            border-radius: 32px;
+            padding: 18px 18px 20px 18px;
+            display: flex;
+            flex-direction: column;
+            max-height: 90vh;
+        }
+
+        .ton-popup-body {
+            padding: 18px 4px 4px 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            overflow-y: auto;
+        }
+
+        .ton-info-box {
+            margin-top: 4px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(0, 212, 255, 0.18);
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.45;
+        }
+
+        .ton-info-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #ffffff;
+        }
+
+        .ton-info-link {
+            margin-top: 10px;
+            color: #00d4ff;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .ton-attention-content {
+            background: linear-gradient(180deg, #000000 0%, #05070a 40%, #050b12 100%);
+            max-width: 480px;
+            width: 100%;
+            border-radius: 32px 32px 0 0;
+            padding: 22px 20px 24px 20px;
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .ton-attention-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .ton-attention-text {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .ton-attention-close-btn {
+            width: 100%;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.03);
+            color: #ffffff;
+            padding: 14px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .ton-attention-close-btn:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+        
+        .main-menu-card-icon.yellow {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+        }
+        
+        .main-menu-card-icon.blue {
+            background: rgba(0, 212, 255, 0.25);
+            color: #00d4ff;
+        }
+        
+        .main-menu-card-icon.green {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+        }
+        
+        /* Большая карточка Steam */
+        .main-menu-card.steam-card {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(10, 10, 10, 0.9) 100%);
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="rgba(0,212,255,0.1)" stroke-width="2"/></svg>');
+            background-size: cover;
+            background-position: center;
+            min-height: 120px;
+            border: 1px solid rgba(0, 212, 255, 0.15);
+        }
+        
+        /* Большая карточка Supercell */
+        .main-menu-card.supercell-card {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(10, 10, 10, 0.9) 100%);
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="rgba(0,212,255,0.1)" stroke-width="2"/></svg>');
+            background-size: cover;
+            background-position: center;
+            min-height: 120px;
+            border: 1px solid rgba(0, 212, 255, 0.15);
+        }
+        
+        .supercell-logo-bg {
+            position: absolute;
+            right: -20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 150px;
+            height: 150px;
+            opacity: 0.3;
+        }
+        
+        .steam-logo-bg {
+            position: absolute;
+            right: -20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 150px;
+            height: 150px;
+            opacity: 0.3;
+            filter: blur(10px);
+        }
+        
+        /* Секция ИГРЫ в главном меню */
+        .main-menu-games-section {
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .main-menu-games-title {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .main-menu-games-scroll {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 10px 0 20px 0;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 212, 255, 0.3) transparent;
+        }
+        
+        .main-menu-games-scroll::-webkit-scrollbar {
+            height: 6px;
+        }
+        
+        .main-menu-games-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .main-menu-games-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.3);
+            border-radius: 3px;
+        }
+        
+        .main-menu-games-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 212, 255, 0.5);
+        }
+        
+        .main-menu-game-item {
+            flex-shrink: 0;
+            width: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            margin-right: 16px;
+        }
+        
+        .main-menu-game-item:hover {
+            transform: translateY(-3px);
+        }
+        
+        .main-menu-game-item:active {
+            transform: translateY(-1px) scale(0.98);
+        }
+        
+        .main-menu-game-icon {
+            width: 75px;
+            height: 75px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .main-menu-game-item:hover .main-menu-game-icon {
+            border-color: rgba(0, 212, 255, 0.5);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+            transform: scale(1.05);
+        }
+        
+        .main-menu-game-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .main-menu-game-name {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-align: center;
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        /* Мобильная оптимизация */
+        @media (max-width: 768px) {
+            .main-menu-grid {
+                gap: 12px;
+                padding: 15px;
+            }
+            
+            .main-menu-cards {
+                padding: 14px;
+                gap: 10px;
+            }
+            
+            .main-menu-card {
+                padding: 12px 14px 14px 14px;
+                min-height: 85px;
+            }
+            
+            .main-menu-card-title {
+                font-size: 0.9rem;
+                padding-right: 0;
+                line-height: 1.25;
+            }
+            
+            .main-menu-card-subtitle {
+                font-size: 0.7rem;
+                padding-right: 0;
+            }
+            
+            .main-menu-card-icons {
+                bottom: 12px;
+                right: 12px;
+                gap: 8px;
+            }
+            
+            .main-menu-card-icons img {
+                width: 36px;
+                height: 36px;
+            }
+            
+            .main-menu-card-icon {
+                width: 28px;
+                height: 28px;
+                font-size: 0.75rem;
+            }
+            
+            .main-menu-games-section {
+                padding: 12px;
+                margin-top: 12px;
+            }
+            
+            .main-menu-games-title {
+                font-size: 1rem;
+                margin-bottom: 12px;
+            }
+            
+            .main-menu-game-item {
+                width: 85px;
+            }
+            
+            .main-menu-game-icon {
+                width: 65px;
+                height: 65px;
+            }
+            
+            .main-menu-game-name {
+                font-size: 0.8rem;
+            }
+            
+            .market-card {
+                min-width: 240px;
+                height: 130px;
+            }
+            
+            .market-section {
+                padding: 15px;
+            }
+            
+            .market-section-title {
+                font-size: 1.2rem;
+            }
+            
+            .service-card {
+                padding: 16px;
+            }
+            
+            .service-title {
+                font-size: 1rem;
+            }
+            
+            .service-description {
+                font-size: 0.85rem;
+            }
+            
+            .game-card {
+                padding: 12px;
+            }
+            
+            .game-icon {
+                width: 40px;
+                height: 40px;
+            }
+            
+            .game-title {
+                font-size: 1rem;
+            }
+            
+            .game-description {
+                font-size: 0.8rem;
+            }
+            
+            .steam-popup-content {
+                max-height: 95vh;
+            }
+            
+            .steam-popup-body {
+                padding: 15px;
+            }
+            
+            .steam-topup-window {
+                max-width: 100%;
+                margin: 8px;
+                max-height: 92vh;
+            }
+            
+            .steam-topup-header {
+                padding: 16px 16px 20px;
+            }
+            
+            .steam-topup-back {
+                width: 40px;
+                height: 40px;
+                font-size: 1.1rem;
+            }
+            
+            .steam-topup-logo-icon {
+                width: 42px;
+                height: 42px;
+                font-size: 1.4rem;
+            }
+            
+            .steam-topup-logo-text {
+                font-size: 1.15rem;
+            }
+            
+            .steam-topup-form {
+                padding: 0 16px 90px 16px;
+            }
+            
+            .steam-topup-legal {
+                margin-top: 18px;
+                padding-top: 18px;
+                padding-bottom: 18px;
+            }
+            
+            .steam-topup-card {
+                padding: 18px;
+                margin-bottom: 16px;
+            }
+            
+            .steam-topup-label span {
+                font-size: 0.9rem;
+            }
+            
+            .steam-topup-hint {
+                font-size: 0.75rem;
+            }
+            
+            .steam-topup-input-wrap {
+                padding: 0 14px;
+            }
+            
+            .steam-topup-input {
+                font-size: 1rem;
+                padding: 14px 0;
+            }
+            
+            .steam-topup-presets {
+                gap: 8px;
+                margin-top: 12px;
+            }
+            
+            .steam-topup-preset {
+                padding: 8px 14px;
+                font-size: 0.85rem;
+            }
+            
+            .steam-topup-conversion {
+                font-size: 0.75rem;
+                margin-top: 12px;
+            }
+            
+            .steam-topup-actions {
+                margin-top: 20px;
+                gap: 10px;
+            }
+            
+            .steam-topup-btn {
+                padding: 16px 20px;
+                font-size: 1rem;
+            }
+            
+            .steam-topup-legal {
+                font-size: 0.7rem;
+                margin-top: 18px;
+            }
+            
+            .supercell-game-item {
+                padding: 30px 20px;
+                min-height: 160px;
+            }
+            
+            .supercell-game-icon {
+                width: 80px;
+                height: 80px;
+                font-size: 2.5rem;
+            }
+            
+            .supercell-game-info h3 {
+                font-size: 1.4rem;
+            }
+            
+            .supercell-game-info p {
+                font-size: 0.95rem;
+            }
+            
+            .main-bottom-nav {
+                padding: 8px 0 max(15px, env(safe-area-inset-bottom, 15px)) 0;
+            }
+            
+            .main-nav-btn {
+                padding: 6px 12px;
+                font-size: 0.65rem;
+            }
+            
+            .main-nav-btn i {
+                font-size: 1.2rem;
+            }
+            
+            .nav-icon-bg {
+                width: 35px;
+                height: 35px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .main-menu-grid {
+                gap: 10px;
+                padding: 12px;
+            }
+            
+            .main-menu-cards {
+                padding: 12px;
+                gap: 8px;
+            }
+            
+            .main-menu-card {
+                padding: 10px 12px 12px 12px;
+                min-height: 80px;
+            }
+            
+            .main-menu-card-title {
+                font-size: 0.85rem;
+                padding-right: 0;
+                line-height: 1.25;
+            }
+            
+            .main-menu-card-subtitle {
+                font-size: 0.65rem;
+                padding-right: 0;
+            }
+            
+            .main-menu-card-icons {
+                bottom: 10px;
+                right: 10px;
+                gap: 6px;
+            }
+            
+            .main-menu-card-icons img {
+                width: 32px;
+                height: 32px;
+            }
+            
+            .main-menu-card-icon {
+                width: 26px;
+                height: 26px;
+                font-size: 0.7rem;
+            }
+            
+            .market-card {
+                min-width: 200px;
+                height: 120px;
+            }
+            
+            .steam-topup-window {
+                margin: 0;
+                max-height: 100vh;
+                border-radius: 0;
+            }
+            
+            .steam-topup-header {
+                padding: 14px 14px 18px;
+            }
+            
+            .steam-topup-back {
+                width: 38px;
+                height: 38px;
+                font-size: 1rem;
+            }
+            
+            .steam-topup-logo-icon {
+                width: 38px;
+                height: 38px;
+                font-size: 1.2rem;
+            }
+            
+            .steam-topup-logo-text {
+                font-size: 1rem;
+            }
+            
+            
+            .steam-topup-form {
+                padding: 0 14px 80px 14px;
+            }
+            
+            .steam-topup-legal {
+                margin-top: 16px;
+                padding-top: 16px;
+                padding-bottom: 16px;
+                font-size: 0.65rem;
+                line-height: 1.4;
+            }
+            
+            .steam-topup-card {
+                padding: 16px;
+                margin-bottom: 14px;
+            }
+            
+            .steam-topup-label span {
+                font-size: 0.85rem;
+            }
+            
+            .steam-topup-hint {
+                font-size: 0.7rem;
+            }
+            
+            .steam-topup-input-wrap {
+                padding: 0 12px;
+            }
+            
+            .steam-topup-input {
+                font-size: 0.95rem;
+                padding: 12px 0;
+            }
+            
+            .steam-topup-presets {
+                gap: 6px;
+                margin-top: 10px;
+            }
+            
+            .steam-topup-preset {
+                padding: 8px 12px;
+                font-size: 0.8rem;
+                flex: 1;
+                min-width: calc(50% - 3px);
+            }
+            
+            .steam-topup-conversion {
+                font-size: 0.7rem;
+                margin-top: 10px;
+            }
+            
+            .steam-topup-actions {
+                margin-top: 18px;
+                gap: 8px;
+            }
+            
+            .steam-topup-btn {
+                padding: 14px 18px;
+                font-size: 0.95rem;
+            }
+            
+            .steam-topup-legal {
+                font-size: 0.65rem;
+                margin-top: 16px;
+            }
+            
+            .service-card {
+                padding: 14px;
+                flex-direction: column;
+            }
+            
+            .service-price {
+                text-align: left;
+                margin-left: 0;
+                margin-top: 12px;
+            }
+            
+            .game-card {
+                padding: 10px;
+            }
+            
+            .supercell-game-item {
+                padding: 25px 16px;
+                min-height: 140px;
+            }
+            
+            .supercell-game-icon {
+                width: 70px;
+                height: 70px;
+                font-size: 2rem;
+            }
+            
+            .supercell-game-info h3 {
+                font-size: 1.2rem;
+            }
+        }
+        
+    </style>
+</head>
+<body>
+    <!-- Экран загрузки -->
+    <div id="splashScreen">
+        <div class="splash-background">
+            <div class="splash-stars"></div>
+        </div>
+        <div class="splash-logo">
+            <div class="splash-logo-icon">
+                <i class="fas fa-rocket"></i>
+            </div>
+            <div class="splash-title">JET</div>
+            <div class="splash-loader"></div>
+        </div>
+    </div>
+    
+    <!-- Главное меню -->
+    <div class="main-menu-container" id="mainMenu">
+        <!-- Шапка -->
+        <header class="store-header">
+            <div class="store-header-left">
+                <div class="store-logo" id="storeUserAvatar">
+                    <i class="fas fa-rocket" style="color: #20b2aa; font-size: 1.5rem;"></i>
+                </div>
+                <div class="store-title">
+                    <h1 id="storeUserName">JET</h1>
+                    <span>мини-приложение</span>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Главное меню с карточками -->
+        <div class="main-menu-view" id="mainMenuView">
+            <!-- Карточки меню -->
+            <div class="main-menu-cards">
+                <div class="main-menu-card" onclick="showStoreView('stars')">
+                    <div class="main-menu-card-title">Купить звёзды</div>
+                    <div class="main-menu-card-subtitle">звёзды</div>
+                    <div class="main-menu-card-icons">
+                        <div class="main-menu-card-icon yellow">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <div class="main-menu-card-icon yellow">
+                            <i class="fas fa-arrow-down"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="main-menu-card" onclick="showStoreView('sellStars')">
+                    <div class="main-menu-card-title">Продать звёзды</div>
+                    <div class="main-menu-card-subtitle">звёзды</div>
+                    <div class="main-menu-card-icons">
+                        <div class="main-menu-card-icon yellow">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <div class="main-menu-card-icon yellow">
+                            <i class="fas fa-arrow-down"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="main-menu-card" onclick="showStoreView('ton')">
+                    <div class="main-menu-card-title">Купить TON</div>
+                    <div class="main-menu-card-subtitle">TON</div>
+                    <div class="main-menu-card-icons">
+                        <div class="main-menu-card-icon blue">
+                            <i class="fas fa-gem"></i>
+                        </div>
+                        <div class="main-menu-card-icon green">
+                            <i class="fas fa-check"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="main-menu-card" onclick="showStoreView('premium')">
+                    <div class="main-menu-card-title">Premium оформить</div>
+                    <div class="main-menu-card-subtitle">Premium</div>
+                    <div class="main-menu-card-icons">
+                        <img src="assets/premium-icon.png" alt="Premium" style="width: 40px; height: 40px; object-fit: contain; border-radius: 10px; display: block;">
+                    </div>
+                </div>
+                
+                <div class="main-menu-card steam-card" onclick="showStoreView('steam')">
+                    <div class="main-menu-card-title">STEAM</div>
+                    <div class="main-menu-card-subtitle">Пополнить рублями</div>
+                    <div class="steam-logo-bg">
+                        <i class="fab fa-steam" style="font-size: 100px; color: rgba(0, 212, 255, 0.2);"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Секция ИГРЫ -->
+            <div class="main-menu-games-section">
+                <h2 class="main-menu-games-title">ИГРЫ</h2>
+                <div class="main-menu-games-scroll">
+                    <!-- Brawl Stars -->
+                    <div class="main-menu-game-item" onclick="showGameProducts('brawlstars')">
+                        <div class="main-menu-game-icon">
+                            <img src="assets/brawlstars-icon.png" alt="Brawl Stars">
+                        </div>
+                        <div class="main-menu-game-name">Brawl Stars</div>
+                    </div>
+                    
+                    <!-- Clash Royale -->
+                    <div class="main-menu-game-item" onclick="showGameProducts('clashroyale')">
+                        <div class="main-menu-game-icon">
+                            <img src="assets/clashroyale-icon.png" alt="Clash Royale">
+                        </div>
+                        <div class="main-menu-game-name">Clash Royale</div>
+                    </div>
+                    
+                    <!-- Clash of Clans -->
+                    <div class="main-menu-game-item" onclick="showGameProducts('clashofclans')">
+                        <div class="main-menu-game-icon">
+                            <img src="assets/clashofclans-icon.png" alt="Clash of Clans">
+                        </div>
+                        <div class="main-menu-game-name">Clash of Clans</div>
+                    </div>
+                    
+                    <!-- Standoff 2 -->
+                    <div class="main-menu-game-item" onclick="showGameProducts('standoff2')">
+                        <div class="main-menu-game-icon">
+                            <img src="assets/standoff2-icon.png" alt="Standoff 2">
+                        </div>
+                        <div class="main-menu-game-name">Standoff 2</div>
+                    </div>
+                    
+                    <!-- PUBG Mobile -->
+                    <div class="main-menu-game-item" onclick="showGameProducts('pubgmobile')">
+                        <div class="main-menu-game-icon">
+                            <img src="assets/pubgmobile-icon.png" alt="PUBG Mobile">
+                        </div>
+                        <div class="main-menu-game-name">PUBG Mobile</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Магазин звёзд (скрыт по умолчанию) -->
+        <div class="store-view" id="storeView">
+            <!-- Вкладки навигации -->
+        <div class="store-tabs">
+            <button class="store-tab active" onclick="switchStoreTab('stars')">
+                <i class="fas fa-star"></i>
+                <span>Звёзды</span>
+            </button>
+            <button class="store-tab" onclick="switchStoreTab('rating')">
+                <i class="fas fa-trophy"></i>
+                <span>Рейтинг</span>
+            </button>
+        </div>
+        
+        <!-- Индикатор страницы -->
+        <div class="page-indicator">
+            <div class="page-dot active"></div>
+            <div class="page-dot"></div>
+        </div>
+        
+        <!-- Контент магазина -->
+        <div class="store-content">
+            <!-- Секция звёзд (новый дизайн покупки звёзд) -->
+            <div class="store-section active" id="starsSection">
+                <div class="section-title">
+                    <i class="fas fa-star"></i>
+                    <span>Купить звёзды</span>
+                </div>
+                
+                <div class="store-form">
+                    <div class="store-field">
+                        <label class="store-label">Получатель</label>
+                        <div class="store-input-row">
+                            <div class="store-input-wrapper" id="starsRecipientWrapper">
+                                <i class="fas fa-user store-input-icon"></i>
+                                <input
+                                    type="text"
+                                    id="starsRecipient"
+                                    class="store-input"
+                                    placeholder="Никнейм пользователя Telegram"
+                                    onblur="checkTelegramUser('starsRecipient', 'starsUserPreview')">
+                            </div>
+                            <button type="button" class="store-input-action" onclick="fillOwnUsername('starsRecipient')">/купить себе</button>
+                        </div>
+                        <!-- Чип выбранного получателя -->
+                        <div id="starsUserPreview" class="tg-user-chip">
+                            <div class="tg-user-chip-left">
+                                <div class="tg-user-chip-avatar">
+                                    <img id="starsUserAvatar" src="" alt="">
+                                </div>
+                                <span id="starsUserName" class="tg-user-chip-name"></span>
+                            </div>
+                            <button type="button" class="tg-user-chip-remove" onclick="clearStarsRecipient()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div id="starsUserError" class="tg-user-error-text">
+                            Пользователь Telegram не найден.
+                        </div>
+                    </div>
+                    
+                    <div class="store-field">
+                        <label class="store-label">Звёзд</label>
+                        <div class="store-input-wrapper">
+                            <i class="fas fa-star store-input-icon"></i>
+                            <input type="number" id="starsAmountInput" class="store-input" placeholder="Введите число от 50 до 10 000" min="50" max="10000" oninput="updateStarsAmountFromInput()">
+                        </div>
+                        <div class="store-field-hint">Минимум 50 ⭐ и максимум 10 000 ⭐ за одну покупку.</div>
+                    </div>
+                    
+                    <div class="store-price-summary">
+                        <div class="store-price-line">
+                            <span>К оплате</span>
+                            <span id="starsPriceRubDisplay">0 ₽</span>
+                        </div>
+                        <div class="store-price-line secondary">
+                            <span>Примерно</span>
+                            <span id="starsPriceUsdDisplay">0.00 $</span>
+                        </div>
+                    </div>
+                    
+                    <button class="continue-btn" id="starsContinueBtn" onclick="proceedStarsPurchase()">
+                        Оплатить
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Секция Premium (новый дизайн Telegram Premium) -->
+            <div class="store-section" id="premiumSection">
+                <div class="section-title">
+                    <i class="fas fa-crown"></i>
+                    <span>Telegram Premium</span>
+                </div>
+                
+                <div class="store-form">
+                    <div class="store-field">
+                        <label class="store-label">Получатель</label>
+                        <div class="store-input-row">
+                            <div class="store-input-wrapper" id="premiumRecipientWrapper">
+                                <i class="fas fa-user store-input-icon"></i>
+                                <input type="text" id="premiumRecipient" class="store-input" placeholder="Никнейм пользователя Telegram" onblur="checkTelegramUser('premiumRecipient', 'premiumUserPreview')">
+                            </div>
+                            <button type="button" class="store-input-action" onclick="fillOwnUsername('premiumRecipient')">/купить себе</button>
+                        </div>
+                        <div id="premiumUserPreview" class="user-preview" style="display: none; margin-top: 10px; padding: 10px; background: rgba(0, 0, 0, 0.5); border-radius: 10px; align-items: center; gap: 10px;">
+                            <img src="" alt="" style="width: 40px; height: 40px; border-radius: 50%;">
+                            <span style="color: #fff; font-weight: 600;"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="store-field">
+                        <label class="store-label">Продолжительность</label>
+                    </div>
+                    
+                    <!-- Карточки премиума -->
+                    <div class="premium-card" data-months="3" onclick="selectPremiumByMonths(3)">
+                        <div class="premium-card-left">
+                            <div class="premium-card-duration">3 мес.</div>
+                        </div>
+                        <div class="premium-card-prices">
+                            <span class="premium-price-rub">0 ₽</span>
+                            <span class="premium-price-usd">0.00 $</span>
+                        </div>
+                        <div class="premium-card-radio"></div>
+                    </div>
+                    
+                    <div class="premium-card" data-months="6" onclick="selectPremiumByMonths(6)">
+                        <div class="premium-card-left">
+                            <div class="premium-card-duration">6 мес.</div>
+                        </div>
+                        <div class="premium-card-prices">
+                            <span class="premium-price-rub">0 ₽</span>
+                            <span class="premium-price-usd">0.00 $</span>
+                        </div>
+                        <div class="premium-card-radio"></div>
+                    </div>
+                    
+                    <div class="premium-card" data-months="12" onclick="selectPremiumByMonths(12)">
+                        <div class="premium-card-badge">выгодно</div>
+                        <div class="premium-card-left">
+                            <div class="premium-card-duration">12 мес.</div>
+                        </div>
+                        <div class="premium-card-prices">
+                            <span class="premium-price-rub">0 ₽</span>
+                            <span class="premium-price-usd">0.00 $</span>
+                        </div>
+                        <div class="premium-card-radio"></div>
+                    </div>
+                    
+                    <div class="store-promo-link">Ввести промокод</div>
+                    
+                    <button class="continue-btn" id="premiumContinueBtn" onclick="proceedPremiumPurchase()">
+                        Оплатить
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Секция Рейтинг -->
+            <div class="store-section" id="ratingSection">
+                <div class="section-title">
+                    <i class="fas fa-trophy"></i>
+                    <span>Рейтинг покупателей</span>
+                </div>
+                
+                <div style="text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.5);">
+                    <i class="fas fa-trophy" style="font-size: 3rem; margin-bottom: 16px; color: #00d4ff;"></i>
+                    <p>Рейтинг скоро будет доступен</p>
+                </div>
+            </div>
+        </div>
+        </div>
+        
+        <!-- Окно пополнения Steam -->
+        <div id="steamTopupPopup" class="popup">
+            <div class="steam-topup-window">
+                <div class="steam-topup-header">
+                    <button class="steam-topup-back" onclick="closeSteamTopup()" aria-label="Назад">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <div class="steam-topup-logo">
+                        <div class="steam-topup-logo-icon">
+                            <i class="fab fa-steam"></i>
+                        </div>
+                        <span class="steam-topup-logo-text">Пополнение <span>Steam</span></span>
+                    </div>
+                    <div style="width: 44px;"></div>
+                </div>
+                
+                <div class="steam-topup-form">
+                    <div class="steam-topup-card">
+                        <div class="steam-topup-input-group">
+                            <div class="steam-topup-label">
+                                <span>Логин Steam</span>
+                                <span class="steam-topup-hint">где найти?</span>
+                            </div>
+                            <div class="steam-topup-input-wrap">
+                                <i class="fas fa-user"></i>
+                                <input type="text" id="steamLogin" class="steam-topup-input" placeholder="login16">
+                                <button type="button" class="steam-topup-clear" onclick="clearSteamInput('steamLogin')">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="steam-topup-input-group">
+                            <div class="steam-topup-label">
+                                <span>Сумма пополнения</span>
+                                <span class="steam-topup-hint" id="steamCurrencyHint">₽</span>
+                            </div>
+                            <div class="steam-currency-switcher">
+                                <button type="button" id="steamCurRub" class="steam-currency-btn active" onclick="setSteamCurrency('RUB')">₽ RUB</button>
+                                <button type="button" id="steamCurKzt" class="steam-currency-btn" onclick="setSteamCurrency('KZT')">₸ KZT</button>
+                                <button type="button" id="steamCurUah" class="steam-currency-btn" onclick="setSteamCurrency('UAH')">₴ UAH</button>
+                            </div>
+                            <div class="steam-topup-input-wrap">
+                                <span class="steam-currency-icon" id="steamCurrencyIcon">₽</span>
+                                <input type="number" id="steamAmount" class="steam-topup-input" placeholder="100" min="1">
+                                <button type="button" class="steam-topup-clear" onclick="clearSteamInput('steamAmount')">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="steam-topup-presets">
+                                <button type="button" class="steam-topup-preset" onclick="setSteamAmount(100)">100</button>
+                                <button type="button" class="steam-topup-preset" onclick="setSteamAmount(500)">500</button>
+                                <button type="button" class="steam-topup-preset" onclick="setSteamAmount(1000)">1 000</button>
+                                <button type="button" class="steam-topup-preset" onclick="setSteamAmount(2000)">2 000</button>
+                                <button type="button" class="steam-topup-preset" onclick="setSteamAmount(5000)">5 000</button>
+                            </div>
+                            <div class="steam-topup-conversion">
+                                Конвертация в валюту вашей страны производится автоматически по текущему курсу.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="steam-topup-actions">
+                        <button type="button" class="steam-topup-btn payment" onclick="showPaymentMethodSelection('steam')">
+                            <i class="fas fa-credit-card"></i>
+                            Выбрать способ оплаты
+                        </button>
+                    </div>
+                    
+                    <div class="steam-topup-legal">
+                        Нажимая «оплатить», вы соглашаетесь с <a href="#">офертой</a>, <a href="#">политикой конфиденциальности</a> и даёте <a href="#">согласие на обработку данных</a>.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Окно выбора способа оплаты -->
+        <div id="paymentMethodPopup" class="popup">
+            <div class="popup-content supercell-popup-content">
+                <div class="steam-popup-header">
+                    <button class="steam-back-btn" onclick="closePaymentMethodPopup()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <h2 class="steam-popup-title">Выбор способа оплаты</h2>
+                    <div style="width: 40px;"></div>
+                </div>
+                
+                <div class="steam-popup-body payment-method-body" style="padding: 20px;">
+                    <!-- СБП (БЫСТРЫЕ ПЛАТЕЖИ) -->
+                    <div class="payment-category">
+                        <h3 class="payment-category-title">СБП (БЫСТРЫЕ ПЛАТЕЖИ)</h3>
+                        <div class="payment-methods-list">
+                            <button class="payment-method-item" onclick="selectPaymentMethod('sbp', 10)">
+                                <div class="payment-method-icon" style="background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 100%);">
+                                    <i class="fas fa-building" style="color: #fff;"></i>
+                                </div>
+                                <div class="payment-method-info">
+                                    <span class="payment-method-name">СБП</span>
+                                    <span class="payment-method-bonus">+10%</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- БАНКОВСКАЯ КАРТА -->
+                    <div class="payment-category">
+                        <h3 class="payment-category-title">БАНКОВСКАЯ КАРТА</h3>
+                        <div class="payment-methods-list">
+                            <button class="payment-method-item" onclick="selectPaymentMethod('card', 10)">
+                                <div class="payment-method-icon" style="background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);">
+                                    <i class="fas fa-credit-card" style="color: #333;"></i>
+                                </div>
+                                <div class="payment-method-info">
+                                    <span class="payment-method-name">Карта</span>
+                                    <span class="payment-method-bonus">+10%</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- КРИПТОВАЛЮТА -->
+                    <div class="payment-category">
+                        <h3 class="payment-category-title">КРИПТОВАЛЮТА</h3>
+                        <div class="payment-methods-list">
+                            <button class="payment-method-item" onclick="selectPaymentMethod('ton', 0)">
+                                <div class="payment-method-icon" style="background: linear-gradient(135deg, #0088cc 0%, #0066aa 100%);">
+                                    <i class="fas fa-gem" style="color: #fff;"></i>
+                                </div>
+                                <div class="payment-method-info">
+                                    <span class="payment-method-name">TON Wallet</span>
+                                    <span class="payment-method-bonus">0%</span>
+                                </div>
+                            </button>
+                            <button class="payment-method-item" onclick="selectPaymentMethod('cryptobot', 2)">
+                                <div class="payment-method-icon" style="background: linear-gradient(135deg, #0088cc 0%, #0066aa 100%);">
+                                    <i class="fas fa-robot" style="color: #fff;"></i>
+                                </div>
+                                <div class="payment-method-info">
+                                    <span class="payment-method-name">CryptoBot</span>
+                                    <span class="payment-method-bonus">+2%</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Экран ожидания оплаты -->
+        <div id="paymentWaitingPopup" class="popup">
+            <div class="popup-content supercell-popup-content">
+                <div class="steam-popup-header">
+                    <button class="steam-back-btn" onclick="closePaymentWaiting()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <h2 class="steam-popup-title" id="paymentWaitingTitle">Ожидание оплаты</h2>
+                    <div style="width: 40px;"></div>
+                </div>
+                
+                <div class="steam-popup-body payment-waiting-body" style="padding: 40px 20px; text-align: center;">
+                    <div class="payment-waiting-icon">
+                        <i class="fas fa-hourglass-half"></i>
+                    </div>
+                    <h3 class="payment-waiting-title">Ожидание оплаты</h3>
+                    <p class="payment-waiting-description" id="paymentWaitingDescription">Оплатите 0 ₽ через СБП (+10%)</p>
+                    
+                    <div class="payment-waiting-details">
+                        <div class="payment-detail-row">
+                            <span class="payment-detail-label">Сумма пополнения</span>
+                            <span class="payment-detail-value" id="paymentDetailAmount">0 ₽</span>
+                        </div>
+                        <div class="payment-detail-row">
+                            <span class="payment-detail-label" id="paymentDetailCommissionLabel">Комиссия (10%)</span>
+                            <span class="payment-detail-value" id="paymentDetailCommission">+0 ₽</span>
+                        </div>
+                        <div class="payment-detail-row total">
+                            <span class="payment-detail-label">К оплате</span>
+                            <span class="payment-detail-value" id="paymentDetailTotal">0 ₽</span>
+                        </div>
+                        <div class="payment-detail-row">
+                            <span class="payment-detail-label">Метод</span>
+                            <span class="payment-detail-value" id="paymentDetailMethod">СБП (+10%)</span>
+                        </div>
+                        <div class="payment-detail-row">
+                            <span class="payment-detail-label">Статус</span>
+                            <span class="payment-detail-value status" id="paymentDetailStatus">Ожидание...</span>
+                        </div>
+                    </div>
+                    
+                    <button class="payment-waiting-btn primary" id="paymentWaitingPrimaryBtn" onclick="openPaymentPage()">
+                        Открыть страницу оплаты
+                    </button>
+                    <p class="payment-waiting-hint">После оплаты баланс обновится</p>
+                    <button class="payment-waiting-btn secondary" onclick="closePaymentWaiting()">
+                        Вернуться к покупкам
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Окно ПРОДАТЬ ЗВЁЗДЫ -->
+        <div id="sellStarsPopup" class="popup">
+            <div class="popup-content sell-popup-content">
+                <div class="sell-popup-header">
+                    <button class="steam-back-btn" onclick="backFromSellStars()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <h2 class="sell-popup-title">Продать звёзды</h2>
+                    <button class="steam-topup-back" onclick="closeSellStarsPopup()" aria-label="Закрыть" style="width: 36px; height: 36px; border-radius: 18px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="sell-popup-body">
+                    <div class="sell-methods">
+                        <button class="sell-method-btn active" id="sellMethodWallet" onclick="switchSellStarsMethod('wallet')">
+                            <i class="fas fa-wallet"></i>
+                            <span>На кошелёк</span>
+                        </button>
+                        <button class="sell-method-btn" id="sellMethodSbp" onclick="switchSellStarsMethod('sbp')">
+                            <i class="fas fa-qrcode"></i>
+                            <span>По СБП</span>
+                        </button>
+                        <button class="sell-method-btn" id="sellMethodCard" onclick="switchSellStarsMethod('card')">
+                            <i class="fas fa-credit-card"></i>
+                            <span>На карту</span>
+                        </button>
+                    </div>
+                    
+                    <div class="store-form" id="sellWalletForm">
+                        <div class="store-field">
+                            <label class="store-label">Получатель</label>
+                            <div class="store-input-wrapper">
+                                <i class="fas fa-wallet store-input-icon"></i>
+                                <input type="text" id="sellWalletAddress" class="store-input" placeholder="Кошелёк USDT в сети TON">
+                            </div>
+                            <div class="store-field-hint">Обязательно, если указываете кошелёк биржи.</div>
+                        </div>
+                        
+                        <div class="store-field">
+                            <label class="store-label">Memo / Комментарий к продаже</label>
+                            <div class="store-input-wrapper">
+                                <i class="fas fa-comment-dots store-input-icon"></i>
+                                <input type="text" id="sellWalletMemo" class="store-input" placeholder="Мемо, если требуется биржей">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="store-form" id="sellSbpForm" style="display: none;">
+                        <div class="store-field">
+                            <label class="store-label">Получатель</label>
+                            <div class="store-input-wrapper">
+                                <i class="fas fa-phone store-input-icon"></i>
+                                <input type="tel" id="sellSbpPhone" class="store-input" placeholder="+7 (___) ___-__-__">
+                            </div>
+                        </div>
+                        
+                        <div class="store-field">
+                            <label class="store-label">Банк получателя</label>
+                            <div class="store-input-wrapper" onclick="openBankSelect('sbp')">
+                                <i class="fas fa-university store-input-icon"></i>
+                                <input type="text" id="sellSbpBank" class="store-input" placeholder="Выберите банк" readonly>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="store-form" id="sellCardForm" style="display: none;">
+                        <div class="store-field">
+                            <label class="store-label">Получатель</label>
+                            <div class="store-input-wrapper">
+                                <i class="fas fa-credit-card store-input-icon"></i>
+                                <input type="text" id="sellCardNumber" class="store-input" placeholder="Номер карты получателя (РФ, Казахстан)">
+                            </div>
+                        </div>
+                        
+                        <div class="store-field">
+                            <label class="store-label">Банк получателя</label>
+                            <div class="store-input-wrapper" onclick="openBankSelect('card')">
+                                <i class="fas fa-university store-input-icon"></i>
+                                <input type="text" id="sellCardBank" class="store-input" placeholder="Выберите банк" readonly>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="store-field">
+                        <label class="store-label">Звёзд</label>
+                        <div class="store-input-wrapper">
+                            <i class="fas fa-star store-input-icon"></i>
+                            <input type="number" id="sellStarsAmountInput" class="store-input" placeholder="Введите число от 100 до 10 000" min="100" max="10000" oninput="updateSellStarsAmountFromInput()">
+                        </div>
+                        <div class="sell-limit-info" id="sellStarsLimitText">Минимум 100 ⭐, максимум 10 000 ⭐.</div>
+                        <div class="sell-buy-rate" id="sellStarsBuyRateText">1 звезда = 0.65 ₽ (курс скупки)</div>
+                    </div>
+                    
+                    <div class="sell-summary">
+                        <div class="sell-summary-line">
+                            <span>Вы получите</span>
+                            <span id="sellStarsRubReceive">0 ₽</span>
+                        </div>
+                        <div class="sell-summary-line secondary">
+                            <span>Продать</span>
+                            <span id="sellStarsAmountSummary">0 ⭐</span>
+                        </div>
+                    </div>
+                    
+                    <div class="sell-note">
+                        Ваш лимит в день: <strong>10 000 ⭐</strong>.<br>
+                        Перед продажей ознакомьтесь с <a href="#" target="_blank">условиями продажи звёзд</a>.
+                    </div>
+                    
+                    <button class="continue-btn" id="sellStarsSubmitBtn" onclick="submitSellStars()">
+                        Продать 0 ⭐
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Окно подтверждения продажи звёзд -->
+        <div id="sellStarsConfirmPopup" class="popup">
+            <div class="popup-content sell-popup-content">
+                <div class="sell-popup-header">
+                    <button class="steam-back-btn" onclick="closeSellStarsConfirm()" aria-label="Закрыть">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <h2 class="sell-popup-title">Подтверждение продажи</h2>
+                    <div style="width: 44px;"></div>
+                </div>
+                
+                <div class="sell-confirm-body">
+                    <div class="sell-confirm-icon">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div class="sell-confirm-title">Продать звёзды</div>
+                    <div class="sell-confirm-text" id="sellStarsConfirmText">
+                        Вы уверены, что хотите продать 0 ⭐?
+                    </div>
+                    
+                    <button class="continue-btn" id="sellStarsConfirmBtn" onclick="confirmSellStars()">
+                        Подтвердить и продать 0 ⭐
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Попап выбора игры Supercell (на весь экран) -->
+        <div id="supercellGamesPopup" class="popup">
+            <div class="popup-content supercell-popup-content">
+                <div class="steam-popup-header" style="background: rgba(10, 14, 39, 0.95); backdrop-filter: blur(10px);">
+                    <button class="steam-back-btn" onclick="closeSupercellGames()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <h2 class="steam-popup-title">Supercell</h2>
+                    <div style="width: 40px;"></div>
+                </div>
+                
+                <div class="steam-popup-body" style="flex: 1; display: flex; flex-direction: column; padding: 0;">
+                    <div style="padding: 20px; text-align: center;">
+                        <p style="color: rgba(255,255,255,0.7); font-size: 1rem; margin: 0;">Выберите игру</p>
+                    </div>
+                    
+                    <div class="supercell-games-list">
+                        <div class="supercell-game-item" onclick="showSupercellProducts('clashroyale')">
+                            <div class="supercell-game-icon" style="background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #00d4ff 100%);">
+                                <i class="fas fa-crown"></i>
+                            </div>
+                            <div class="supercell-game-info">
+                                <h3>Clash Royale</h3>
+                                <p>Royal Pass</p>
+                            </div>
+                        </div>
+                        
+                        <div class="supercell-game-item" onclick="showSupercellProducts('clashofclans')">
+                            <div class="supercell-game-icon" style="background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #00d4ff 100%);">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <div class="supercell-game-info">
+                                <h3>Clash of Clans</h3>
+                                <p>Pass</p>
+                            </div>
+                        </div>
+                        
+                        <div class="supercell-game-item full-width" onclick="showSupercellProducts('brawlstars')">
+                            <div class="supercell-game-icon" style="background: linear-gradient(135deg, #00d4ff 0%, #40e0d0 50%, #00d4ff 100%);">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="supercell-game-info">
+                                <h3>Brawl Stars</h3>
+                                <p>Brawl Pass</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Попап товаров Supercell -->
+        <div id="supercellProductsPopup" class="popup">
+            <div class="popup-content supercell-popup-content">
+                <div class="steam-popup-header">
+                    <button class="steam-back-btn" onclick="closeSupercellProducts()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <h2 class="steam-popup-title" id="supercellGameTitle">Supercell</h2>
+                </div>
+                
+                <div class="steam-popup-body">
+                    <div id="supercellProductsList" class="supercell-products-list">
+                        <!-- Товары будут загружены через JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Попап товаров игр -->
+        <div id="gameProductsPopup" class="popup">
+            <div class="popup-content supercell-popup-content">
+                <div class="steam-popup-header">
+                    <button class="steam-back-btn" onclick="closeGameProducts()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <h2 class="steam-popup-title" id="gameProductsTitle">Игра</h2>
+                </div>
+                
+                <div class="steam-popup-body">
+                    <div id="gameProductsList" class="supercell-products-list">
+                        <!-- Товары будут загружены через JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Нижняя навигация -->
+        <nav class="main-bottom-nav">
+            <button class="main-nav-btn active" onclick="showMainMenuView()">
+                <div class="nav-icon-bg">
+                    <i class="fas fa-home"></i>
+                </div>
+                <span>Главная</span>
+            </button>
+            <button class="main-nav-btn" onclick="goToReferral()">
+                <div class="nav-icon-bg">
+                    <i class="fas fa-coins"></i>
+                </div>
+                <span>Заработать</span>
+            </button>
+            <button class="main-nav-btn" onclick="window.location.href='assets.html'">
+                <div class="nav-icon-bg">
+                    <i class="fab fa-telegram-plane"></i>
+                </div>
+                <span>Активы</span>
+            </button>
+            <button class="main-nav-btn" onclick="window.location.href='profile.html'">
+                <div class="nav-icon-bg">
+                    <i class="fas fa-user"></i>
+                </div>
+                <span>Профиль</span>
+            </button>
+        </nav>
+        
+        <!-- Окно покупки TON -->
+        <div id="tonPopup" class="popup">
+            <div class="popup-content ton-popup-content">
+                <div class="steam-popup-header">
+                    <button class="steam-back-btn" onclick="backFromTonPopup()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <h2 class="steam-popup-title">Купить TON</h2>
+                    <div style="width: 40px;"></div>
+                </div>
+                
+                <div class="steam-popup-body ton-popup-body">
+                    <div class="store-form">
+                        <div class="store-field">
+                            <label class="store-label">Получатель</label>
+                            <div class="store-input-row">
+                                <div class="store-input-wrapper">
+                                    <i class="fas fa-user store-input-icon"></i>
+                                    <input type="text" id="tonRecipient" class="store-input" placeholder="Никнейм пользователя Telegram" oninput="checkTelegramUser('tonRecipient', 'tonUserPreview')">
+                                </div>
+                                <button type="button" class="store-input-action" onclick="fillOwnUsername('tonRecipient')">/купить себе</button>
+                            </div>
+                            <div id="tonUserPreview" class="user-preview" style="display: none; margin-top: 10px; padding: 10px; background: rgba(0, 0, 0, 0.5); border-radius: 10px;">
+                                <img id="tonUserAvatar" src="" alt="" style="width: 40px; height: 40px; border-radius: 50%;">
+                                <span id="tonUserName" style="color: #fff; font-weight: 600;"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="store-field">
+                            <label class="store-label">TON</label>
+                            <div class="store-input-wrapper">
+                                <i class="fas fa-gem store-input-icon"></i>
+                                <input type="number" id="tonAmountInput" class="store-input" placeholder="Введите число от 1 до 200" min="1" max="200" oninput="updateTonAmountFromInput()">
+                            </div>
+                        </div>
+                        
+                        <div class="ton-info-box">
+                            <div class="ton-info-title">Обратите внимание</div>
+                            <div class="ton-info-text">
+                                Telegram TON — это внутренняя валюта, которая используется для оплаты услуг внутри Telegram. Не является криптовалютой. Будет отправлена на ваш Telegram‑аккаунт.
+                            </div>
+                            <div class="ton-info-link" onclick="openTonAttention()">Подробнее</div>
+                        </div>
+                        
+                        <button class="continue-btn" id="tonContinueBtn" onclick="proceedTonPurchase()">
+                            Введите число от 1 до 200
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Попап «Обратите внимание» для TON -->
+        <div id="tonAttentionPopup" class="popup">
+            <div class="ton-attention-content">
+                <div class="ton-attention-title">Обратите внимание</div>
+                <div class="ton-attention-text">
+                    Telegram TON — это внутренняя валюта, которая используется для оплаты услуг внутри Telegram. 
+                    Не является криптовалютой. Будет отправлена на ваш Telegram‑аккаунт.
+                </div>
+                <button class="ton-attention-close-btn" onclick="closeTonAttention()">Закрыть</button>
+            </div>
+        </div>
+
+        <!-- Окно NFT подарки -->
+        <div id="nftGiftsPopup" class="popup">
+            <div class="popup-content supercell-popup-content">
+                <div class="steam-popup-header">
+                    <button class="steam-back-btn" onclick="closeNFTGifts()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <h2 class="steam-popup-title">NFT подарки</h2>
+                    <div style="width: 40px;"></div>
+                </div>
+                
+                <div class="steam-popup-body" style="padding: 40px 20px; text-align: center;">
+                    <i class="fas fa-gift" style="font-size: 4rem; color: #00d4ff; margin-bottom: 20px; opacity: 0.7;"></i>
+                    <p style="color: rgba(255, 255, 255, 0.7); font-size: 1.1rem;">NFT подарки скоро будут доступны</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Окно Premium (отдельное) -->
+        <div id="premiumPopup" class="popup">
+            <div class="popup-content supercell-popup-content">
+                <div class="steam-popup-header">
+                    <button class="steam-back-btn" onclick="closePremiumPopup()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <h2 class="steam-popup-title">Telegram Premium</h2>
+                    <div style="width: 40px;"></div>
+                </div>
+                
+                <div class="steam-popup-body" style="padding: 20px;">
+                    <div class="store-form">
+                        <div class="store-field">
+                            <label class="store-label">Получатель</label>
+                            <div class="store-input-row">
+                                <div class="store-input-wrapper">
+                                    <i class="fas fa-user store-input-icon"></i>
+                                    <input type="text" id="premiumPopupRecipient" class="store-input" placeholder="Никнейм пользователя Telegram" onblur="checkTelegramUser('premiumPopupRecipient', 'premiumPopupUserPreview')">
+                                </div>
+                                <button type="button" class="store-input-action" onclick="fillOwnUsername('premiumPopupRecipient')">/купить себе</button>
+                            </div>
+                            <div id="premiumPopupUserPreview" class="user-preview" style="display: none; margin-top: 10px; padding: 10px; background: rgba(0, 0, 0, 0.5); border-radius: 10px; align-items: center; gap: 10px;">
+                                <img id="premiumPopupUserAvatar" src="" alt="" style="width: 40px; height: 40px; border-radius: 50%;">
+                                <span id="premiumPopupUserName" style="color: #fff; font-weight: 600;"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="store-field">
+                            <label class="store-label">Продолжительность</label>
+                        </div>
+                        
+                        <!-- Компактные карточки премиума (в 2 раза меньше) -->
+                        <div class="premium-card-compact" data-months="3" onclick="selectPremiumByMonthsPopup(3)">
+                            <div class="premium-card-left">
+                                <div class="premium-card-duration">3 мес.</div>
+                            </div>
+                            <div class="premium-card-prices">
+                                <span class="premium-price-rub">0 ₽</span>
+                                <span class="premium-price-usd">0.00 $</span>
+                            </div>
+                            <div class="premium-card-radio"></div>
+                        </div>
+                        
+                        <div class="premium-card-compact" data-months="6" onclick="selectPremiumByMonthsPopup(6)">
+                            <div class="premium-card-left">
+                                <div class="premium-card-duration">6 мес.</div>
+                            </div>
+                            <div class="premium-card-prices">
+                                <span class="premium-price-rub">0 ₽</span>
+                                <span class="premium-price-usd">0.00 $</span>
+                            </div>
+                            <div class="premium-card-radio"></div>
+                        </div>
+                        
+                        <div class="premium-card-compact" data-months="12" onclick="selectPremiumByMonthsPopup(12)">
+                            <div class="premium-card-badge-compact">выгодно</div>
+                            <div class="premium-card-left">
+                                <div class="premium-card-duration">12 мес.</div>
+                            </div>
+                            <div class="premium-card-prices">
+                                <span class="premium-price-rub">0 ₽</span>
+                                <span class="premium-price-usd">0.00 $</span>
+                            </div>
+                            <div class="premium-card-radio"></div>
+                        </div>
+                        
+                        <div class="store-promo-link">Ввести промокод</div>
+                        
+                        <button class="continue-btn" id="premiumPopupContinueBtn" onclick="proceedPremiumPurchaseFromPopup()">
+                            Оплатить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Старое меню (скрыто по умолчанию) -->
+    <div class="container" id="oldMenu" style="display: none;">
+        <!-- Шапка магазина -->
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-rocket"></i>
+                <h1>JET STORE</h1>
+            </div>
+            <div class="user-info" id="userInfo">
+                <div class="balance" id="balance">
+                    <!-- Баланс будет вставлен через JS -->
+                </div>
+                <div class="avatar" id="userAvatar">👤</div>
+            </div>
+        </header>
+
+        <!-- Приветственный баннер -->
+        <div class="welcome-banner">
+            <h2>🚀 Добро пожаловать в JET STORE!</h2>
+            <p>Самый быстрый магазин цифровых товаров</p>
+            <div class="stats">
+                <div class="stat-item">
+                    <i class="fas fa-bolt"></i>
+                    <span>Мгновенная доставка</span>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Безопасные сделки</span>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-users"></i>
+                    <span>10K+ клиентов</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Компактные категории товаров -->
+        <div class="section-selector compact">
+            <h2><i class="fas fa-th-large"></i> КАТЕГОРИИ ТОВАРОВ</h2>
+            <div class="categories-grid compact">
+                <div class="category-card compact" onclick="showSection('telegram')">
+                    <div class="category-icon telegram compact">
+                        <i class="fab fa-telegram"></i>
+                    </div>
+                    <h3>Telegram</h3>
+                </div>
+
+                <div class="category-card compact" onclick="showSection('steam')">
+                    <div class="category-icon steam compact">
+                        <i class="fab fa-steam"></i>
+                    </div>
+                    <h3>Steam</h3>
+                </div>
+
+                <div class="category-card compact" onclick="showSection('games')">
+                    <div class="category-icon games compact">
+                        <i class="fas fa-gamepad"></i>
+                    </div>
+                    <h3>Другие игры</h3>
+                </div>
+
+                <div class="category-card compact" onclick="showSection('all')">
+                    <div class="category-icon all compact">
+                        <i class="fas fa-store"></i>
+                    </div>
+                    <h3>Все товары</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Контентная область -->
+        <div class="content">
+            <!-- Telegram раздел -->
+            <section id="telegram-section" class="section active">
+                <div class="section-header">
+                    <h2><i class="fab fa-telegram"></i> Telegram товары</h2>
+                </div>
+                
+                <div class="products-grid" id="telegram-products">
+                    <!-- Товары будут загружены через JS -->
+                </div>
+            </section>
+
+            <!-- Steam раздел -->
+            <section id="steam-section" class="section">
+                <div class="section-header">
+                    <h2><i class="fab fa-steam"></i> Steam товары</h2>
+                </div>
+                
+                <div class="products-grid" id="steam-products">
+                    <!-- Товары будут загружены через JS -->
+                </div>
+            </section>
+
+            <!-- Другие игры раздел -->
+            <section id="games-section" class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-gamepad"></i> Другие игры</h2>
+                </div>
+                
+                <div class="products-grid" id="games-products">
+                    <!-- Товары будут загружены через JS -->
+                </div>
+            </section>
+
+            <!-- Все товары раздел -->
+            <section id="all-section" class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-store"></i> Все товары</h2>
+                </div>
+                
+                <div class="products-grid" id="all-products">
+                    <!-- Товары будут загружены через JS -->
+                </div>
+            </section>
+
+            <!-- Рулетка раздел -->
+            <section id="roulette-section" class="section">
+                <div class="roulette-container">
+                    <!-- Заголовок и баланс -->
+                    <div class="roulette-header">
+                        <h2><i class="fas fa-dice"></i> CRYPTO ROULETTE</h2>
+                        <div class="balance-display">
+                            <div class="balance-item">
+                                <i class="fas fa-wallet"></i>
+                                <div class="balance-text">
+                                    <span id="usdt-balance">1.00</span> USDT
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Основной контент рулетки -->
+                    <div class="roulette-main">
+                        <!-- Панель выбора ставок -->
+                        <div class="bet-panel">
+                            <h3><i class="fas fa-coins"></i> ВЫБЕРИТЕ СТАВКУ</h3>
+                            
+                            <div class="bet-buttons-grid">
+                                <button class="bet-btn active" data-bet="2">
+                                    <span class="bet-amount">2</span>
+                                    <span class="bet-currency">USDT</span>
+                                </button>
+                                <button class="bet-btn" data-bet="4">
+                                    <span class="bet-amount">4</span>
+                                    <span class="bet-currency">USDT</span>
+                                </button>
+                                <button class="bet-btn" data-bet="25">
+                                    <span class="bet-amount">25</span>
+                                    <span class="bet-currency">USDT</span>
+                                </button>
+                                <button class="bet-btn" data-bet="0.05">
+                                    <span class="bet-amount">0.05</span>
+                                    <span class="bet-currency">USDT</span>
+                                </button>
+                            </div>
+                            
+                            <div class="currency-selector">
+                                <div class="currency-info">
+                                    <i class="fas fa-coins"></i>
+                                    <div class="currency-details">
+                                        <span class="currency-name" id="rouletteCurrencyName">RUB</span>
+                                        <span class="currency-change" onclick="switchRouletteCurrency()">Изменить валюту ></span>
+                                    </div>
+                                </div>
+                                <div class="currency-balance">
+                                    <span id="current-currency-balance">0 RUB</span>
+                                    <span class="balance-label">ваш баланс</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Кнопки управления -->
+                            <div class="roulette-controls">
+                                <button class="control-btn auto-spin" id="autoSpinBtn">
+                                    <i class="fas fa-redo"></i>
+                                    <span>Авто-спин</span>
+                                </button>
+                                <button class="control-btn spin-main" id="spinMainBtn">
+                                    <i class="fas fa-play"></i>
+                                    <span>Крутить за $<span id="current-bet-amount">1</span></span>
+                                </button>
+                            </div>
+                            
+                            <!-- Результат рулетки -->
+                            <div class="result-display">
+                                <div class="result-header">
+                                    <h4><i class="fas fa-chart-line"></i> РЕЗУЛЬТАТ</h4>
+                                    <button class="clear-history" id="clearHistoryBtn">
+                                        <i class="fas fa-trash-alt"></i> Очистить
+                                    </button>
+                                </div>
+                                <div class="result-box" id="resultBox">
+                                    <div class="result-placeholder">
+                                        <i class="fas fa-dice"></i>
+                                        <p>Сделайте ставку и запустите рулетку</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- История ставок -->
+                        <div class="bet-history">
+                            <h3><i class="fas fa-history"></i> ИСТОРИЯ СТАВОК</h3>
+                            <div class="history-list" id="betHistoryList">
+                                <div class="history-item placeholder">
+                                    <i class="fas fa-clock"></i>
+                                    <p>Здесь будет отображаться история ваших ставок</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Статистика -->
+                    <div class="stats-panel">
+                        <div class="stat-card">
+                            <div class="stat-icon win">
+                                <i class="fas fa-trophy"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="totalWins">0</span>
+                                <span class="stat-label">Побед</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon loss">
+                                <i class="fas fa-times"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="totalLosses">0</span>
+                                <span class="stat-label">Поражений</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon profit">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="totalProfit">0</span>
+                                <span class="stat-label">Прибыль USDT</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Нижняя панель -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" onclick="showSection('telegram')">
+                <i class="fab fa-telegram"></i>
+                <span>Telegram</span>
+            </button>
+            <button class="nav-btn" onclick="showSection('steam')">
+                <i class="fab fa-steam"></i>
+                <span>Steam</span>
+            </button>
+            <button class="nav-btn" onclick="showSection('games')">
+                <i class="fas fa-gamepad"></i>
+                <span>Игры</span>
+            </button>
+            <button class="nav-btn" onclick="showSection('roulette')">
+                <i class="fas fa-dice"></i>
+                <span>Рулетка</span>
+            </button>
+            <button class="nav-btn" onclick="showSection('all')">
+                <i class="fas fa-store"></i>
+                <span>Все</span>
+            </button>
+            <button class="nav-btn" onclick="window.location.href='profile.html'">
+                <i class="fas fa-user"></i>
+                <span>Профиль</span>
+            </button>
+        </nav>
+
+        <!-- Попап для покупки -->
+        <div id="buyPopup" class="popup">
+            <div class="popup-content">
+                <div class="popup-header">
+                    <h3>Подтверждение покупки</h3>
+                    <button class="close-btn" onclick="closePopup()">×</button>
+                </div>
+                <div class="popup-body">
+                    <p id="popupMessage">Вы уверены, что хотите купить этот товар?</p>
+                    <div class="popup-info">
+                        <div class="info-item">
+                            <span>Товар:</span>
+                            <strong id="popupProductName">-</strong>
+                        </div>
+                        <div class="info-item">
+                            <span>Стоимость:</span>
+                            <strong id="popupProductPrice">0 ₽</strong>
+                        </div>
+                        <div class="info-item">
+                            <span>Ваш баланс:</span>
+                            <strong id="popupBalance">0 ₽</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="popup-footer">
+                    <button class="btn-secondary" onclick="closePopup()">Отмена</button>
+                    <button class="btn-primary" onclick="confirmPurchase()">Купить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </div>
+
+    <script src="database.js"></script>
+    <script src="config.js"></script>
+    <script>
+        // Убеждаемся, что Database инициализирована перед загрузкой script.js
+        if (typeof window.Database !== 'undefined' && window.Database) {
+            if (typeof window.Database.init === 'function') {
+                window.Database.init();
+                console.log('✅ Database инициализирована в index.html');
+            } else {
+                console.warn('⚠️ window.Database.init не является функцией');
+            }
+        } else {
+            console.error('❌ window.Database не найдена!');
+        }
+    </script>
+    <script src="roulette.js"></script>
+    <script src="script.js"></script>
+    <script>
+        // Фиксация нижней навигации при открытии клавиатуры
+        (function() {
+            const nav = document.querySelector('.main-bottom-nav');
+            if (nav) {
+                let initialBottom = 0;
+                
+                function fixNavPosition() {
+                    if (nav) {
+                        nav.style.position = 'fixed';
+                        nav.style.bottom = '0';
+                        nav.style.transform = 'none';
+                    }
+                }
+                
+                // Фиксируем позицию при фокусе на input/textarea
+                document.addEventListener('focusin', function(e) {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                        setTimeout(fixNavPosition, 100);
+                    }
+                });
+                
+                // Фиксируем при изменении viewport (открытие клавиатуры)
+                if (window.visualViewport) {
+                    window.visualViewport.addEventListener('resize', fixNavPosition);
+                }
+                
+                // Фиксируем при изменении размера окна
+                window.addEventListener('resize', fixNavPosition);
+                
+                // Периодическая проверка (на случай если другие события не сработали)
+                setInterval(fixNavPosition, 500);
+            }
+        })();
+        
+        // Управление экраном загрузки и главным меню
+        document.addEventListener('DOMContentLoaded', function() {
+            const splashScreen = document.getElementById('splashScreen');
+            const mainMenu = document.getElementById('mainMenu');
+            const oldMenu = document.getElementById('oldMenu');
+            
+            const hasSeenSplash = localStorage.getItem('jet_has_seen_splash') === 'true';
+            
+            const activateMainMenu = () => {
+                if (splashScreen) splashScreen.style.display = 'none';
+                if (mainMenu) mainMenu.classList.add('active');
+                if (oldMenu) oldMenu.style.display = 'none';
+                // Открыть Маркет, если переход из профиля по кнопке «Маркет»
+                if (sessionStorage.getItem('openMarket') === '1') {
+                    sessionStorage.removeItem('openMarket');
+                    if (typeof showMarketView === 'function') showMarketView();
+                }
+                // Открыть магазин с определенной секцией
+                const openStoreSection = sessionStorage.getItem('openStoreSection');
+                if (openStoreSection) {
+                    sessionStorage.removeItem('openStoreSection');
+                    setTimeout(() => {
+                        if (typeof showStoreView === 'function') {
+                            showStoreView(openStoreSection);
+                        }
+                    }, 100);
+                }
+            };
+            
+            if (hasSeenSplash) {
+                // Пользователь уже видел анимацию — сразу показываем главное меню
+                activateMainMenu();
+            } else {
+                // Первый заход — показываем анимацию, затем главное меню
+                setTimeout(() => {
+                    activateMainMenu();
+                    localStorage.setItem('jet_has_seen_splash', 'true');
+                }, 3500);
+            }
+        });
+        
+        // Показать главное меню
+        function showMainMenu() {
+            document.querySelectorAll('.main-nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.main-nav-btn').classList.add('active');
+            // Здесь можно добавить логику переключения секций
+        }
+        
+        // Показать меню реферальной программы
+        function showReferralMenu() {
+            document.querySelectorAll('.main-nav-btn').forEach(btn => btn.classList.remove('active'));
+            if (event && event.target) {
+                event.target.closest('.main-nav-btn')?.classList.add('active');
+            }
+            // Переходим в профиль и открываем реферальную программу
+            window.location.href = 'profile.html';
+            // Сохраняем флаг для открытия реферальной программы
+            sessionStorage.setItem('openReferral', 'true');
+        }
+        
+        // Показать меню маркета
+        function showMarketMenu() {
+            document.querySelectorAll('.main-nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.main-nav-btn').classList.add('active');
+            // Переключаемся на старое меню с товарами
+            const mainMenu = document.getElementById('mainMenu');
+            const oldMenu = document.getElementById('oldMenu');
+            if (mainMenu) mainMenu.style.display = 'none';
+            if (oldMenu) oldMenu.style.display = 'block';
+        }
+        
+        // Показать секцию (для карточек)
+        function showSection(sectionId) {
+            console.log('Переключение на секцию:', sectionId);
+            
+            // Переключаемся на маркет для всех секций кроме реферальной
+            if (sectionId === 'buy-stars' || sectionId === 'sell-stars' || sectionId === 'buy-ton' || 
+                sectionId === 'premium' || sectionId === 'gifts' || sectionId === 'steam') {
+                showMarketMenu();
+                setTimeout(() => {
+                    // Маппинг секций
+                    const sectionMap = {
+                        'buy-stars': 'telegram',
+                        'sell-stars': 'telegram',
+                        'buy-ton': 'all',
+                        'premium': 'all',
+                        'gifts': 'all',
+                        'steam': 'steam'
+                    };
+                    
+                    const targetSection = sectionMap[sectionId] || 'all';
+                    if (typeof window.showSection === 'function') {
+                        window.showSection(targetSection);
+                    }
+                }, 100);
+            }
+        }
+        
+        // Экспорт функций
+        window.showMainMenu = showMainMenu;
+        window.showReferralMenu = showReferralMenu;
+        window.showMarketMenu = showMarketMenu;
+    </script>
+</body>
+</html>
