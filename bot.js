@@ -139,6 +139,11 @@ export function startBot({ store, botToken, providerToken, baseUrl, adminTgIds =
       nonce: Math.random().toString(36).slice(2),
     });
 
+    if (!providerToken) {
+      await ctx.reply('Оплата через Telegram сейчас отключена. Используйте оплату по ссылке (FreeKassa) или напишите администратору.');
+      return;
+    }
+
     await ctx.replyWithInvoice({
       title: `VPN — ${plan.title}`,
       description: 'Доступ к персональной подписке для v2raytun.',

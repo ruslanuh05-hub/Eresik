@@ -166,7 +166,7 @@ app.post('/admin/plans/:id', adminAuth, (req, res) => {
   }
 });
 
-if (BOT_TOKEN && PROVIDER_TOKEN && BASE_URL) {
+if (BOT_TOKEN && BASE_URL) {
   startBot({
     store,
     botToken: BOT_TOKEN,
