@@ -33,6 +33,16 @@ UPSTREAM_SUB_URL = os.getenv("UPSTREAM_SUB_URL", SUBSCRIPTION_BASE_URL)
 # Фото для личного кабинета (путь к фоновому изображению)
 CABINET_BG_IMAGE = Path(__file__).parent / "assets" / "cabinet_bg.png"
 
+# Координаты текста подписки на картинке кабинета:
+# TEXT_X — горизонталь: число пикселей или 0.0–1.0 (0.5 = центр)
+# TEXT_Y_FROM_BOTTOM — базовая линия Y, пикселей от низа изображения
+# LABEL_OFFSET — смещение «Подписка до:» вверх от базы (отрицательное)
+# DATE_OFFSET — смещение даты вниз от базы (положительное)
+CABINET_TEXT_X = 0.8  # 0.5 = центр
+CABINET_TEXT_Y_FROM_BOTTOM = 300
+CABINET_LABEL_OFFSET = -25
+CABINET_DATE_OFFSET = 15
+
 # Фото для главного меню (команда /start)
 WELCOME_IMAGE = Path(__file__).parent / "assets" / "welcome.png"
 
