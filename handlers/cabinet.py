@@ -1,10 +1,11 @@
 """Личный кабинет пользователя."""
 import time as time_module
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, BufferedInputFile, InputMediaPhoto
 from aiogram.filters import Command
 
 from database import get_or_create_user
+from image_gen import generate_subscription_image
 
 router = Router()
 
@@ -61,14 +62,32 @@ async def build_cabinet_text(telegram_id: int) -> str:
 @router.message(Command("cabinet"))
 @router.message(Command("sub"))
 async def cmd_my(msg: Message):
+    user = await get_or_create_user(msg.from_user.id)
     text = await build_cabinet_text(msg.from_user.id)
     from handlers.start import main_keyboard
-    await msg.answer(text, parse_mode="Markdown", reply_markup=main_keyboard())
+    img_bytes = generate_subscription_image(
+        user.get("subscription_expires_at"),
+        user.get("nickname") or msg.from_user.username or "",
+    )
+    photo = BufferedInputFile(img_bytes, filename="cabinet.png")
+    await msg.answer_photo(photo, caption=text, parse_mode="Markdown", reply_markup=main_keyboard())
 
 
 @router.callback_query(F.data == "cabinet")
 async def show_cabinet(cb: CallbackQuery):
+    user = await get_or_create_user(cb.from_user.id)
     text = await build_cabinet_text(cb.from_user.id)
     from handlers.start import main_keyboard
-    await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=main_keyboard())
+    img_bytes = generate_subscription_image(
+        user.get("subscription_expires_at"),
+        user.get("nickname") or cb.from_user.username or "",
+    )
+    photo = BufferedInputFile(img_bytes, filename="cabinet.png")
+    try:
+        media = InputMediaPhoto(media=photo, caption=text, parse_mode="Markdown")
+        await cb.message.edit_media(media=media, reply_markup=main_keyboard())
+    except Exception:
+        # Сообщение было текстовым — удаляем и отправляем фото
+        await cb.message.delete()
+        await cb.message.answer_photo(photo, caption=text, parse_mode="Markdown", reply_markup=main_keyboard())
     await cb.answer()

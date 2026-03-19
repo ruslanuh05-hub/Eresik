@@ -30,6 +30,12 @@ FREKASSA_CALLBACK_PATH = "/pay/freekassa/callback"
 SUBSCRIPTION_BASE_URL = os.getenv("SUBSCRIPTION_BASE_URL", "https://sub1.jetstoreapp.ru/v2raytun-sub")
 UPSTREAM_SUB_URL = os.getenv("UPSTREAM_SUB_URL", SUBSCRIPTION_BASE_URL)
 
+# Фото для личного кабинета (путь к фоновому изображению)
+CABINET_BG_IMAGE = Path(__file__).parent / "assets" / "cabinet_bg.png"
+
+# Фото для главного меню (команда /start)
+WELCOME_IMAGE = Path(__file__).parent / "assets" / "welcome.png"
+
 # Тарифы: id -> (дни, название). Цена = дни * price_per_day
 DEFAULT_PRICE_PER_DAY = 70 / 30  # 70 ₽/месяц изначально
 PLAN_DAYS = {
