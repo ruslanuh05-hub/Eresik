@@ -62,11 +62,12 @@ python main.py
 
 ## Деплой на Render
 
-1. Подключите репозиторий к Render
-2. Создайте Blueprint из `render.yaml` или добавьте Web Service вручную
-3. Добавьте PostgreSQL (при Blueprint создаётся автоматически)
-4. Заполните переменные окружения: BOT_TOKEN, ADMIN_IDS, FreeKassa, PUBLIC_BASE_URL
-5. PUBLIC_BASE_URL = `https://ваш-сервис.onrender.com`
+1. New + → Web Service, подключите репозиторий
+2. **Root Directory:** `jvpn-bot`
+3. **Build Command:** `pip install -r requirements.txt`
+4. **Start Command:** `python main.py`
+5. Добавьте PostgreSQL и переменную `DATABASE_URL`
+6. Заполните: BOT_TOKEN, ADMIN_IDS, FreeKassa, PUBLIC_BASE_URL
 
 Таблицы в БД с суффиксом Jvpn: `usersJvpn`, `paymentsJvpn`, `purchasesJvpn`, `settingsJvpn`
 
@@ -80,7 +81,6 @@ jvpn-bot/
 ├── freekassa.py  # FreeKassa SCI
 ├── web.py        # Callback + /sub/{token}.txt
 ├── handlers/     # Хендлеры бота
-├── render.yaml   # Blueprint для Render
 └── requirements.txt
 ```
 

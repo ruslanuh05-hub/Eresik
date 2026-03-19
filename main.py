@@ -4,6 +4,7 @@ import logging
 import os
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiohttp import web
 
@@ -39,7 +40,7 @@ async def main():
         logger.error("BOT_TOKEN not set. Create .env from .env.example")
         return
 
-    bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.MARKDOWN)
+    bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
     dp = Dispatcher()
 
     dp.include_router(start_router)
