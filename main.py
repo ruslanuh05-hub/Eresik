@@ -6,6 +6,8 @@ import os
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import ErrorEvent
 from aiohttp import web
 
 from config import BOT_TOKEN, ADMIN_IDS
@@ -48,6 +50,15 @@ async def main():
     dp.include_router(topup_router)
     dp.include_router(buy_router)
     dp.include_router(admin_router)
+
+    @dp.error()
+    async def handle_error(event: ErrorEvent):
+        """Перехват 'message is not modified' при повторном нажатии кнопки."""
+        if isinstance(event.exception, TelegramBadRequest) and "message is not modified" in str(event.exception):
+            if event.update.callback_query:
+                await event.update.callback_query.answer()
+            return True
+        return False
 
     app = create_app(bot)
     runner = web.AppRunner(app)
