@@ -13,6 +13,7 @@ from database import (
     add_balance,
     update_payment_status_by_order_id,
     get_subscription_by_token,
+    get_subscription_record_by_token,
 )
 from freekassa import verify_callback
 
@@ -92,7 +93,9 @@ async def subscription_handler(request: web.Request) -> web.Response:
         if not token or len(token) < 10:
             return web.Response(status=404, text="Not found")
 
-        sub = await get_subscription_by_token(token)
+        # Важно для Happ: даже если срок уже прошёл (или Happ делает запрос сразу после покупки),
+        # вернём конфиг с тем expire, который хранится в БД по токену.
+        sub = await get_subscription_record_by_token(token)
         if not sub:
             return web.Response(status=403, text="Subscription expired or not found")
 
@@ -154,9 +157,17 @@ async def subscription_handler(request: web.Request) -> web.Response:
                     content_type="text/plain; charset=utf-8",
                     headers={"Cache-Control": "no-store"},
                 )
-            except Exception:
-                pass
-        return web.Response(status=500, text="Internal server error")
+            except Exception as upstream_err:
+                logger.exception("subscription_handler fallback upstream failed: %s", upstream_err)
+
+        # Самое последнее: отдаём 200 с пустой "служебной" заглушкой,
+        # чтобы клиент не показывал 500.
+        return web.Response(
+            status=200,
+            text="# subscription-userinfo: upload=0; download=0; total=0; expire=0\n",
+            content_type="text/plain; charset=utf-8",
+            headers={"Cache-Control": "no-store"},
+        )
 
 
 def create_app(bot=None) -> web.Application:
@@ -167,4 +178,33 @@ def create_app(bot=None) -> web.Application:
     app.router.add_get("/health", lambda r: web.json_response({"ok": True}))
     app.router.add_post(FREKASSA_CALLBACK_PATH, freekassa_callback)
     app.router.add_get("/sub/{token}.txt", subscription_handler)
+    app.router.add_get("/debug/sub/{token}.txt", debug_subscription_handler)
+    # Debug без суффикса .txt (на случай, если клиент открывает другой формат)
+    app.router.add_get("/debug/sub/{token}", debug_subscription_handler)
     return app
+
+
+async def debug_subscription_handler(request: web.Request) -> web.Response:
+    """Debug: показать что хранится по токену подписки."""
+    token = request.match_info.get("token", "").removesuffix(".txt")
+    try:
+        record = await get_subscription_record_by_token(token)
+        if not record:
+            return web.json_response({"token": token, "found": False})
+
+        from time import time as now_time
+
+        expires = record.get("subscription_expires_at")
+        return web.json_response(
+            {
+                "token": token,
+                "found": True,
+                "telegram_id": record.get("telegram_id"),
+                "subscription_expires_at": expires,
+                "now": int(now_time()),
+                "active": bool(expires is not None and int(expires) > int(now_time())),
+            }
+        )
+    except Exception as e:
+        logger.exception("debug_subscription_handler failed (token=%s): %s", token[:12], e)
+        return web.json_response({"error": "internal_error"})
