@@ -88,6 +88,10 @@ async def _init_pg() -> None:
             CREATE INDEX IF NOT EXISTS idx_payments_order_Jvpn 
             ON "{PAYMENTS_TABLE}" (freekassa_order_id)
         """)
+        await conn.execute(f"""
+            CREATE INDEX IF NOT EXISTS idx_payments_merchant_order_Jvpn 
+            ON "{PAYMENTS_TABLE}" (order_id)
+        """)
         row = await conn.fetchrow(f'SELECT 1 FROM "{SETTINGS_TABLE}" WHERE key = $1', "price_per_day")
         if not row:
             await conn.execute(
@@ -142,6 +146,7 @@ async def _init_sqlite() -> None:
             )
         """)
         await db.execute(f"CREATE INDEX IF NOT EXISTS idx_payments_order_Jvpn ON {PAYMENTS_TABLE}(freekassa_order_id)")
+        await db.execute(f"CREATE INDEX IF NOT EXISTS idx_payments_merchant_order_Jvpn ON {PAYMENTS_TABLE}(order_id)")
         cur = await db.execute(f'SELECT 1 FROM {SETTINGS_TABLE} WHERE key = ?', ("price_per_day",))
         if not await cur.fetchone():
             await db.execute(

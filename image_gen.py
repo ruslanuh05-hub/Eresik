@@ -29,19 +29,30 @@ def generate_subscription_image(expires_at: int | None, nickname: str = "") -> b
     width, height = img.size
     draw = ImageDraw.Draw(img)
 
-    # Шрифты
-    try:
-        font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
-        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
-    except OSError:
-        font_large = font_small = ImageFont.load_default()
+    # Шрифты (Linux, Windows, fallback)
+    font_paths = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+    ]
+    font_large = font_small = ImageFont.load_default()
+    for path in font_paths:
+        if Path(path).exists():
+            try:
+                font_large = ImageFont.truetype(path, 36)
+                font_small = ImageFont.truetype(path, 22)
+                break
+            except OSError:
+                pass
 
     # Позиция текста (настраивается в config)
     if 0 <= CABINET_TEXT_X <= 1:
         cx = int(width * CABINET_TEXT_X)
     else:
         cx = int(CABINET_TEXT_X)
-    text_y = height - CABINET_TEXT_Y_FROM_BOTTOM
+    # Ограничиваем Y, чтобы не выйти за границы изображения
+    y_from_bottom = min(CABINET_TEXT_Y_FROM_BOTTOM, height - 20)
+    text_y = height - y_from_bottom
 
     if expires_at and expires_at > int(time.time()):
         date_str = time.strftime("%d.%m.%Y", time.localtime(expires_at))

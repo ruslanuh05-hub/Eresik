@@ -1,9 +1,12 @@
 """Веб-сервер для FreeKassa callback и выдачи подписок."""
+import logging
 import time
 from aiohttp import web
 import httpx
 
 from config import FREKASSA_CALLBACK_PATH, UPSTREAM_SUB_URL
+
+logger = logging.getLogger("jvpn-web")
 from database import (
     get_payment_by_order_id,
     add_payment,
@@ -28,15 +31,17 @@ async def freekassa_callback(request: web.Request) -> web.Response:
     except Exception:
         return web.Response(status=400, text="Bad request")
 
-    merchant_id = str(data.get("MERCHANT_ID", ""))
-    amount = str(data.get("AMOUNT", ""))
-    order_id = str(data.get("MERCHANT_ORDER_ID", ""))
-    sign = str(data.get("SIGN", ""))
+    merchant_id = str(data.get("MERCHANT_ID", "")).strip()
+    amount = str(data.get("AMOUNT", "")).strip().replace(",", ".")
+    order_id = str(data.get("MERCHANT_ORDER_ID", "")).strip()
+    sign = str(data.get("SIGN", "")).strip()
 
     if not all([merchant_id, amount, sign]) or not order_id:
+        logger.warning("FreeKassa callback: missing params")
         return web.Response(status=400, text="Missing params")
 
     if not verify_callback(merchant_id, amount, order_id, sign):
+        logger.warning("FreeKassa callback: invalid sign for order_id=%s", order_id[:50])
         return web.Response(status=403, text="Invalid sign")
 
     payment = await get_payment_by_order_id(order_id)
@@ -55,8 +60,9 @@ async def freekassa_callback(request: web.Request) -> web.Response:
                 new_balance = await add_balance(tg_id, amt)
                 await _notify_payment_success(request, tg_id, amt, new_balance)
                 return web.Response(text="YES")
-            except (ValueError, IndexError):
-                pass
+            except (ValueError, IndexError) as e:
+                logger.warning("FreeKassa callback: fallback parse failed for order_id=%s: %s", order_id[:50], e)
+        logger.warning("FreeKassa callback: order not found, order_id=%s", order_id[:50])
         return web.Response(status=404, text="Order not found")
 
     tg_id = payment["telegram_id"]

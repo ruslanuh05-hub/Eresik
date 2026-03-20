@@ -94,30 +94,41 @@ async def _sub_url_for_user(telegram_id: int) -> str | None:
 async def cmd_my(msg: Message):
     user = await get_or_create_user(msg.from_user.id)
     text = await build_cabinet_text(msg.from_user.id)
-    img_bytes = generate_subscription_image(
-        user.get("subscription_expires_at"),
-        user.get("nickname") or msg.from_user.username or "",
-    )
-    photo = BufferedInputFile(img_bytes, filename="cabinet.png")
-    await msg.answer_photo(photo, caption=text, parse_mode="Markdown", reply_markup=cabinet_keyboard())
+    kb = cabinet_keyboard()
+    try:
+        img_bytes = generate_subscription_image(
+            user.get("subscription_expires_at"),
+            user.get("nickname") or msg.from_user.username or "",
+        )
+        photo = BufferedInputFile(img_bytes, filename="cabinet.png")
+        await msg.answer_photo(photo, caption=text, parse_mode="Markdown", reply_markup=kb)
+    except Exception:
+        await msg.answer(text, parse_mode="Markdown", reply_markup=kb)
 
 
 @router.callback_query(F.data == "cabinet")
 async def show_cabinet(cb: CallbackQuery):
     user = await get_or_create_user(cb.from_user.id)
     text = await build_cabinet_text(cb.from_user.id)
-    img_bytes = generate_subscription_image(
-        user.get("subscription_expires_at"),
-        user.get("nickname") or cb.from_user.username or "",
-    )
-    photo = BufferedInputFile(img_bytes, filename="cabinet.png")
     kb = cabinet_keyboard()
     try:
-        media = InputMediaPhoto(media=photo, caption=text, parse_mode="Markdown")
-        await cb.message.edit_media(media=media, reply_markup=kb)
+        img_bytes = generate_subscription_image(
+            user.get("subscription_expires_at"),
+            user.get("nickname") or cb.from_user.username or "",
+        )
+        photo = BufferedInputFile(img_bytes, filename="cabinet.png")
+        try:
+            media = InputMediaPhoto(media=photo, caption=text, parse_mode="Markdown")
+            await cb.message.edit_media(media=media, reply_markup=kb)
+        except Exception:
+            await cb.message.delete()
+            await cb.message.answer_photo(photo, caption=text, parse_mode="Markdown", reply_markup=kb)
     except Exception:
-        await cb.message.delete()
-        await cb.message.answer_photo(photo, caption=text, parse_mode="Markdown", reply_markup=kb)
+        try:
+            await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
+        except Exception:
+            await cb.message.delete()
+            await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
     await cb.answer()
 
 
