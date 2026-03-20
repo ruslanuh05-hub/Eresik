@@ -105,14 +105,12 @@ async def buy_plan(cb: CallbackQuery):
         await cb.answer(str(e), show_alert=True)
         return
 
-    # Персональная ссылка для импорта кнопками (она проксирует HAP с учётом срока).
+    # Персональная ссылка для импорта кнопками и для отображения в тексте.
     personal_sub_url = (
         f"{PUBLIC_BASE_URL}/sub/{token}.txt"
         if PUBLIC_BASE_URL
-        else UPSTREAM_SUB_URL
+        else f"{UPSTREAM_SUB_URL}?token={token}"
     )
-    # Что показываем пользователю в тексте: базовая upstream-ссылка.
-    display_sub_url = UPSTREAM_SUB_URL
 
     expires_str = time.strftime("%d.%m.%Y %H:%M", time.localtime(expires_at))
     kb = subscription_keyboard(personal_sub_url)
@@ -122,7 +120,7 @@ async def buy_plan(cb: CallbackQuery):
         f"✅ *Подписка активирована!*\n\n"
         f"Тариф: {plan['title']}\n"
         f"Действует до: {expires_str}\n\n"
-        f"🔗 Ссылка подписки:\n`{display_sub_url}`\n\n"
+        f"🔗 Ссылка подписки:\n`{personal_sub_url}`\n\n"
         f"Нажмите кнопку ниже, чтобы открыть в приложении:",
         reply_markup=kb,
         parse_mode="Markdown",

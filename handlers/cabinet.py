@@ -66,7 +66,7 @@ def _format_date(ts: int | None) -> str:
 
 
 async def build_cabinet_text(telegram_id: int) -> str:
-    from config import UPSTREAM_SUB_URL
+    from config import PUBLIC_BASE_URL, UPSTREAM_SUB_URL
 
     user = await get_or_create_user(telegram_id)
     balance = user.get("balance") or 0
@@ -83,21 +83,25 @@ async def build_cabinet_text(telegram_id: int) -> str:
     )
 
     if token and expires_at and expires_at > int(time_module.time()):
-        # Показываем базовую upstream-ссылку (она одна и та же для всех).
-        # Персональный срок подставляется на стороне сервера при импорте через кнопки.
-        text += f"\n🔗 *Ссылка подписки:*\n`{UPSTREAM_SUB_URL}`"
+        personal_sub_url = (
+            f"{PUBLIC_BASE_URL}/sub/{token}.txt" if PUBLIC_BASE_URL else f"{UPSTREAM_SUB_URL}?token={token}"
+        )
+        text += f"\n🔗 *Ссылка подписки:*\n`{personal_sub_url}`"
 
     return text
 
 
 async def _sub_url_for_user(telegram_id: int) -> str | None:
-    from config import PUBLIC_BASE_URL
+    from config import PUBLIC_BASE_URL, UPSTREAM_SUB_URL
 
     user = await get_or_create_user(telegram_id)
     token = user.get("subscription_token")
     expires_at = user.get("subscription_expires_at")
-    if token and expires_at and expires_at > int(time_module.time()) and PUBLIC_BASE_URL:
-        return f"{PUBLIC_BASE_URL}/sub/{token}.txt"
+    if token and expires_at and expires_at > int(time_module.time()):
+        if PUBLIC_BASE_URL:
+            return f"{PUBLIC_BASE_URL}/sub/{token}.txt"
+        # Fallback: оставим кнопку даже если нет PUBLIC_BASE_URL
+        return f"{UPSTREAM_SUB_URL}?token={token}"
     return None
 
 
@@ -152,14 +156,12 @@ async def cmd_sub(msg: Message):
     token = user.get("subscription_token")
     expires_at = user.get("subscription_expires_at")
     personal_sub_url = await _sub_url_for_user(msg.from_user.id)
-    from config import UPSTREAM_SUB_URL
-    display_sub_url = UPSTREAM_SUB_URL
 
     now = int(time_module.time())
     if token and expires_at and expires_at > now and personal_sub_url:
         text = (
             "📱 *Мои подписки*\n\n"
-            f"🔗 Ссылка подписки:\n`{display_sub_url}`\n\n"
+            f"🔗 Ссылка подписки:\n`{personal_sub_url}`\n\n"
             f"📅 Действует до: {_format_date(expires_at)}\n"
             f"⏱ Осталось: {_format_expires(expires_at)}\n\n"
             "Нажмите кнопку ниже, чтобы открыть в приложении:"
@@ -188,14 +190,12 @@ async def show_my_subscriptions(cb: CallbackQuery):
     token = user.get("subscription_token")
     expires_at = user.get("subscription_expires_at")
     personal_sub_url = await _sub_url_for_user(cb.from_user.id)
-    from config import UPSTREAM_SUB_URL
-    display_sub_url = UPSTREAM_SUB_URL
 
     now = int(time_module.time())
     if token and expires_at and expires_at > now and personal_sub_url:
         text = (
             "📱 *Мои подписки*\n\n"
-            f"🔗 Ссылка подписки:\n`{display_sub_url}`\n\n"
+            f"🔗 Ссылка подписки:\n`{personal_sub_url}`\n\n"
             f"📅 Действует до: {_format_date(expires_at)}\n"
             f"⏱ Осталось: {_format_expires(expires_at)}\n\n"
             "Нажмите кнопку ниже, чтобы открыть в приложении:"
