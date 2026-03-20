@@ -1,13 +1,39 @@
 """Личный кабинет пользователя."""
 import time as time_module
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message, BufferedInputFile, InputMediaPhoto
+from aiogram.types import CallbackQuery, Message, BufferedInputFile, InputMediaPhoto, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 
 from database import get_or_create_user
 from image_gen import generate_subscription_image
 
 router = Router()
+
+
+def subscription_keyboard(sub_url: str | None) -> InlineKeyboardMarkup:
+    """Клавиатура с кнопками открытия в приложении (deep link) и Назад."""
+    rows = []
+    if sub_url:
+        # Deep links: по нажатию откроется приложение и подписка импортируется
+        hiddify_link = f"hiddify://import/{sub_url}#JetVPN"
+        v2raytun_link = f"v2raytun://import/{sub_url}"
+        happ_link = f"happ://import/{sub_url}"
+        rows.extend([
+            [
+                InlineKeyboardButton(text="📱 Hiddify", url=hiddify_link),
+                InlineKeyboardButton(text="📱 v2RayTun", url=v2raytun_link),
+                InlineKeyboardButton(text="📱 Happ", url=happ_link),
+            ],
+        ])
+    rows.append([InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def cabinet_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура личного кабинета (без кнопок приложений)."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
+    ])
 
 
 def _format_expires(ts: int | None) -> str:
@@ -29,11 +55,6 @@ def _format_date(ts: int | None) -> str:
     return time_module.strftime("%d.%m.%Y %H:%M", time_module.localtime(ts))
 
 
-def main_keyboard():
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
-    ])
 
 
 async def build_cabinet_text(telegram_id: int) -> str:
@@ -58,36 +79,111 @@ async def build_cabinet_text(telegram_id: int) -> str:
     return text
 
 
+async def _sub_url_for_user(telegram_id: int) -> str | None:
+    from config import PUBLIC_BASE_URL
+    user = await get_or_create_user(telegram_id)
+    token = user.get("subscription_token")
+    expires_at = user.get("subscription_expires_at")
+    if token and expires_at and expires_at > int(time_module.time()) and PUBLIC_BASE_URL:
+        return f"{PUBLIC_BASE_URL}/sub/{token}.txt"
+    return None
+
+
 @router.message(Command("my"))
 @router.message(Command("cabinet"))
-@router.message(Command("sub"))
 async def cmd_my(msg: Message):
     user = await get_or_create_user(msg.from_user.id)
     text = await build_cabinet_text(msg.from_user.id)
-    from handlers.start import main_keyboard
     img_bytes = generate_subscription_image(
         user.get("subscription_expires_at"),
         user.get("nickname") or msg.from_user.username or "",
     )
     photo = BufferedInputFile(img_bytes, filename="cabinet.png")
-    await msg.answer_photo(photo, caption=text, parse_mode="Markdown", reply_markup=main_keyboard())
+    await msg.answer_photo(photo, caption=text, parse_mode="Markdown", reply_markup=cabinet_keyboard())
 
 
 @router.callback_query(F.data == "cabinet")
 async def show_cabinet(cb: CallbackQuery):
     user = await get_or_create_user(cb.from_user.id)
     text = await build_cabinet_text(cb.from_user.id)
-    from handlers.start import main_keyboard
     img_bytes = generate_subscription_image(
         user.get("subscription_expires_at"),
         user.get("nickname") or cb.from_user.username or "",
     )
     photo = BufferedInputFile(img_bytes, filename="cabinet.png")
+    kb = cabinet_keyboard()
     try:
         media = InputMediaPhoto(media=photo, caption=text, parse_mode="Markdown")
-        await cb.message.edit_media(media=media, reply_markup=main_keyboard())
+        await cb.message.edit_media(media=media, reply_markup=kb)
     except Exception:
-        # Сообщение было текстовым — удаляем и отправляем фото
         await cb.message.delete()
-        await cb.message.answer_photo(photo, caption=text, parse_mode="Markdown", reply_markup=main_keyboard())
+        await cb.message.answer_photo(photo, caption=text, parse_mode="Markdown", reply_markup=kb)
+    await cb.answer()
+
+
+@router.message(Command("sub"))
+async def cmd_sub(msg: Message):
+    """Команда /sub — переход в «Мои подписки»."""
+    sub_url = await _sub_url_for_user(msg.from_user.id)
+    user = await get_or_create_user(msg.from_user.id)
+    token = user.get("subscription_token")
+    expires_at = user.get("subscription_expires_at")
+    now = int(time_module.time())
+
+    if token and expires_at and expires_at > now and sub_url:
+        text = (
+            "📱 *Мои подписки*\n\n"
+            f"🔗 Ссылка подписки:\n`{sub_url}`\n\n"
+            f"📅 Действует до: {_format_date(expires_at)}\n"
+            f"⏱ Осталось: {_format_expires(expires_at)}\n\n"
+            "Нажмите кнопку ниже, чтобы открыть в приложении:"
+        )
+        kb = subscription_keyboard(sub_url)
+    else:
+        text = (
+            "📱 *Мои подписки*\n\n"
+            "Подписка не активна.\n\n"
+            "Купите подписку в разделе «Купить подписку»."
+        )
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub")],
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
+        ])
+    await msg.answer(text, parse_mode="Markdown", reply_markup=kb)
+
+
+@router.callback_query(F.data == "my_subscriptions")
+async def show_my_subscriptions(cb: CallbackQuery):
+    """Мои подписки: ссылка + кнопки открытия в приложениях."""
+    user = await get_or_create_user(cb.from_user.id)
+    token = user.get("subscription_token")
+    expires_at = user.get("subscription_expires_at")
+    sub_url = await _sub_url_for_user(cb.from_user.id)
+
+    now = int(time_module.time())
+    if token and expires_at and expires_at > now and sub_url:
+        text = (
+            "📱 *Мои подписки*\n\n"
+            f"🔗 Ссылка подписки:\n`{sub_url}`\n\n"
+            f"📅 Действует до: {_format_date(expires_at)}\n"
+            f"⏱ Осталось: {_format_expires(expires_at)}\n\n"
+            "Нажмите кнопку ниже, чтобы открыть в приложении:"
+        )
+        kb = subscription_keyboard(sub_url)
+    else:
+        text = (
+            "📱 *Мои подписки*\n\n"
+            "Подписка не активна.\n\n"
+            "Купите подписку в разделе «Купить подписку»."
+        )
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub")],
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
+        ])
+
+    try:
+        await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
+    except Exception:
+        await cb.message.delete()
+        await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
     await cb.answer()

@@ -13,6 +13,7 @@ def main_keyboard():
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👤 Личный кабинет", callback_data="cabinet")],
+        [InlineKeyboardButton(text="📱 Мои подписки", callback_data="my_subscriptions")],
         [InlineKeyboardButton(text="💳 Пополнить баланс", callback_data="topup")],
         [InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub")],
         [InlineKeyboardButton(text="📋 Тарифы", callback_data="plans")],

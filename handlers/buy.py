@@ -1,11 +1,12 @@
 """Покупка подписки за баланс."""
 import time
 from aiogram import Router, F
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 
 from database import get_or_create_user, get_plans, create_or_extend_subscription
 from config import PUBLIC_BASE_URL
+from handlers.cabinet import subscription_keyboard
 
 router = Router()
 
@@ -75,12 +76,15 @@ async def buy_plan(cb: CallbackQuery):
 
     expires_str = time.strftime("%d.%m.%Y %H:%M", time.localtime(expires_at))
 
+    kb = subscription_keyboard(sub_url)
+
     await cb.message.edit_text(
         f"✅ *Подписка активирована!*\n\n"
         f"Тариф: {plan['title']}\n"
         f"Действует до: {expires_str}\n\n"
-        f"🔗 Ссылка подписки (добавьте в v2raytun как Subscription URL):\n"
-        f"`{sub_url}`",
+        f"🔗 Ссылка подписки:\n`{sub_url}`\n\n"
+        f"Нажмите кнопку ниже, чтобы открыть в приложении:",
         parse_mode="Markdown",
+        reply_markup=kb,
     )
     await cb.answer("Подписка оформлена!")
