@@ -45,10 +45,10 @@ CABINET_BG_IMAGE = Path(__file__).parent / "assets" / "cabinet_bg.png"
 # TEXT_Y_FROM_BOTTOM — базовая линия Y, пикселей от низа изображения
 # LABEL_OFFSET — смещение «Подписка до:» вверх от базы (отрицательное)
 # DATE_OFFSET — смещение даты вниз от базы (положительное)
-CABINET_TEXT_X = 0.5  # 0.5 = центр
-CABINET_TEXT_Y_FROM_BOTTOM = 80
-CABINET_LABEL_OFFSET = -25
-CABINET_DATE_OFFSET = 0  # поднять дату/время выше (было 15)
+CABINET_TEXT_X = 0.7  # 0.5 = центр
+CABINET_TEXT_Y_FROM_BOTTOM = 120
+CABINET_LABEL_OFFSET = -50
+CABINET_DATE_OFFSET = -20  # поднять дату/время выше (было 15)
 
 # Фото для главного меню (команда /start)
 WELCOME_IMAGE = Path(__file__).parent / "assets" / "welcome.png"
