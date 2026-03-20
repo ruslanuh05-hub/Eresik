@@ -141,7 +141,21 @@ async def subscription_handler(request: web.Request) -> web.Response:
         )
     except Exception as e:
         logger.exception("subscription_handler failed (token=%s): %s", (token or "")[:12], e)
-        # Не раскрываем стек пользователю, но возвращаем код 500
+        # Happ "падает" на 500 — в качестве fallback отдадим upstream подписку как есть.
+        # Так импорт хотя бы состоится, а ошибку мы увидим в логах.
+        if UPSTREAM_SUB_URL:
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(UPSTREAM_SUB_URL)
+                    resp.raise_for_status()
+                    body = resp.text
+                return web.Response(
+                    text=body,
+                    content_type="text/plain; charset=utf-8",
+                    headers={"Cache-Control": "no-store"},
+                )
+            except Exception:
+                pass
         return web.Response(status=500, text="Internal server error")
 
 
