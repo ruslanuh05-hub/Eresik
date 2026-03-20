@@ -107,7 +107,9 @@ async def subscription_handler(request: web.Request) -> web.Response:
         except Exception:
             return web.Response(status=502, text="Upstream not available")
 
-        expires = sub["subscription_expires_at"]
+        expires = sub.get("subscription_expires_at")
+        if expires is None:
+            return web.Response(status=403, text="Subscription expired or invalid expires")
         try:
             expire_unix = int(expires)
         except Exception as e:
