@@ -139,7 +139,7 @@ async def subscription_handler(request: web.Request) -> web.Response:
         result = "\n".join(new_lines)
         return web.Response(
             text=result,
-            content_type="text/plain; charset=utf-8",
+            content_type="text/plain",
             headers={"Cache-Control": "no-store"},
         )
     except Exception as e:
@@ -154,7 +154,7 @@ async def subscription_handler(request: web.Request) -> web.Response:
                     body = resp.text
                 return web.Response(
                     text=body,
-                    content_type="text/plain; charset=utf-8",
+                    content_type="text/plain",
                     headers={"Cache-Control": "no-store"},
                 )
             except Exception as upstream_err:
@@ -165,7 +165,7 @@ async def subscription_handler(request: web.Request) -> web.Response:
         return web.Response(
             status=200,
             text="# subscription-userinfo: upload=0; download=0; total=0; expire=0\n",
-            content_type="text/plain; charset=utf-8",
+            content_type="text/plain",
             headers={"Cache-Control": "no-store"},
         )
 
