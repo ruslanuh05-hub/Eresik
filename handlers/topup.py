@@ -18,6 +18,24 @@ class TopUpStates(StatesGroup):
     waiting_amount = State()
 
 
+async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mode: str = "Markdown") -> None:
+    """
+    Для сообщений с фото редактируем caption, иначе text.
+    Если редактирование не удалось — удаляем и отправляем новое сообщение.
+    """
+    try:
+        if message.caption is not None:
+            await message.edit_caption(text, parse_mode=parse_mode, reply_markup=reply_markup)
+        else:
+            await message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
+    except Exception:
+        try:
+            await message.delete()
+        except Exception:
+            pass
+        await message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
+
+
 def topup_keyboard(is_admin: bool = False):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -53,11 +71,12 @@ async def topup_start(cb: CallbackQuery, state: FSMContext):
         f"Текущий баланс: *{balance:.2f} ₽*\n\n"
         "Выберите сумму или введите свою (минимум 50 ₽):"
     )
-    try:
-        await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=topup_keyboard(is_admin))
-    except Exception:
-        await cb.message.delete()
-        await cb.message.answer(text, parse_mode="Markdown", reply_markup=topup_keyboard(is_admin))
+    await _safe_edit_message(
+        cb.message,
+        text,
+        reply_markup=topup_keyboard(is_admin),
+        parse_mode="Markdown",
+    )
     await cb.answer()
 
 
@@ -67,9 +86,11 @@ async def topup_amount(cb: CallbackQuery, state: FSMContext):
 
     if data[1] == "custom":
         await state.set_state(TopUpStates.waiting_amount)
-        await cb.message.edit_text(
+        await _safe_edit_message(
+            cb.message,
             "✏️ Введите сумму пополнения (минимум 50 ₽):",
             reply_markup=None,
+            parse_mode="Markdown",
         )
         await cb.answer()
         return
@@ -122,21 +143,24 @@ async def process_test_payment(cb: CallbackQuery, telegram_id: int, amount: floa
     order_id = f"test_jvpn_{telegram_id}_{int(time.time())}"
     await add_payment(telegram_id, amount, order_id, order_id, "completed")
     new_balance = await add_balance(telegram_id, amount)
-    await cb.message.edit_text(
+    await _safe_edit_message(
+        cb.message,
         f"🧪 *Тестовая оплата выполнена*\n\n"
         f"Зачислено: *{amount:.2f} ₽*\n"
         f"Новый баланс: *{new_balance:.2f} ₽*",
-        parse_mode="Markdown",
         reply_markup=topup_keyboard(is_admin=True),
+        parse_mode="Markdown",
     )
 
 
 async def process_topup(cb: CallbackQuery, telegram_id: int, amount: float):
     """Создать платёж и отправить ссылку (для callback из кнопок)."""
     if not FREKASSA_SHOP_ID or not PUBLIC_BASE_URL:
-        await cb.message.edit_text(
+        await _safe_edit_message(
+            cb.message,
             "⚠️ Оплата через FreeKassa не настроена. Обратитесь к администратору.",
             reply_markup=None,
+            parse_mode="Markdown",
         )
         return
 
@@ -156,12 +180,13 @@ async def process_topup(cb: CallbackQuery, telegram_id: int, amount: float):
             [InlineKeyboardButton(text="◀️ Назад", callback_data="topup")],
         ]
     )
-    await cb.message.edit_text(
+    await _safe_edit_message(
+        cb.message,
         f"💳 *Оплата {amount:.2f} ₽*\n\n"
         "Нажмите кнопку ниже для перехода к оплате.\n"
         "После успешной оплаты баланс пополнится автоматически.",
-        parse_mode="Markdown",
         reply_markup=kb,
+        parse_mode="Markdown",
     )
 
 

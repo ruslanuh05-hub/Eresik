@@ -3,7 +3,7 @@
 import time
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, Message
 from aiogram.filters import Command
 
 from database import get_or_create_user, get_plans, create_or_extend_subscription
@@ -11,6 +11,24 @@ from config import PUBLIC_BASE_URL
 from handlers.cabinet import subscription_keyboard
 
 router = Router()
+
+
+async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mode: str = "Markdown") -> None:
+    """
+    Telegram: для сообщений с фото нужно редактировать caption, а не text.
+    Делаем безопасный вариант с fallback на delete+answer.
+    """
+    try:
+        if message.caption is not None:
+            await message.edit_caption(text, parse_mode=parse_mode, reply_markup=reply_markup)
+        else:
+            await message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
+    except Exception:
+        try:
+            await message.delete()
+        except Exception:
+            pass
+        await message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
 
 
 async def plans_keyboard():
@@ -42,7 +60,12 @@ async def buy_sub_start(cb: CallbackQuery):
     )
     for p in plans:
         text += f"\n• {p['title']} — {p['price']} ₽"
-    await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=await plans_keyboard())
+    await _safe_edit_message(
+        cb.message,
+        text,
+        reply_markup=await plans_keyboard(),
+        parse_mode="Markdown",
+    )
     await cb.answer()
 
 
@@ -53,7 +76,12 @@ async def show_plans(cb: CallbackQuery):
     for p in plans:
         text += f"• *{p['title']}* — {p['price']} ₽ ({p['days']} дн.)\n"
     text += "\nНажмите «Купить подписку» для покупки."
-    await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=await plans_keyboard())
+    await _safe_edit_message(
+        cb.message,
+        text,
+        reply_markup=await plans_keyboard(),
+        parse_mode="Markdown",
+    )
     await cb.answer()
 
 
@@ -86,14 +114,15 @@ async def buy_plan(cb: CallbackQuery):
     expires_str = time.strftime("%d.%m.%Y %H:%M", time.localtime(expires_at))
     kb = subscription_keyboard(sub_url)
 
-    await cb.message.edit_text(
+    await _safe_edit_message(
+        cb.message,
         f"✅ *Подписка активирована!*\n\n"
         f"Тариф: {plan['title']}\n"
         f"Действует до: {expires_str}\n\n"
         f"🔗 Ссылка подписки:\n`{sub_url}`\n\n"
         f"Нажмите кнопку ниже, чтобы открыть в приложении:",
-        parse_mode="Markdown",
         reply_markup=kb,
+        parse_mode="Markdown",
     )
     await cb.answer("Подписка оформлена!")
 
