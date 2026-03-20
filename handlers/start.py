@@ -11,13 +11,20 @@ router = Router()
 
 def main_keyboard():
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="👤 Личный кабинет", callback_data="cabinet")],
-        [InlineKeyboardButton(text="📱 Мои подписки", callback_data="my_subscriptions")],
-        [InlineKeyboardButton(text="💳 Пополнить баланс", callback_data="topup")],
-        [InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub")],
-        [InlineKeyboardButton(text="📋 Тарифы", callback_data="plans")],
-    ])
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="👤 Личный кабинет", callback_data="cabinet"),
+                InlineKeyboardButton(text="📱 Мои подписки", callback_data="my_subscriptions"),
+            ],
+            [
+                InlineKeyboardButton(text="💳 Пополнить баланс", callback_data="topup"),
+                InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub"),
+            ],
+            [InlineKeyboardButton(text="📋 Тарифы", callback_data="plans")],
+        ]
+    )
 
 
 def _welcome_text() -> str:
@@ -33,7 +40,7 @@ def _welcome_text() -> str:
 
 @router.message(CommandStart())
 async def cmd_start(msg: Message):
-    user = await get_or_create_user(msg.from_user.id, msg.from_user.username)
+    await get_or_create_user(msg.from_user.id, msg.from_user.username)
     text = _welcome_text()
     kb = main_keyboard()
     if WELCOME_IMAGE.exists():
@@ -48,7 +55,6 @@ async def back_to_main(cb: CallbackQuery):
     text = "Выберите действие:"
     kb = main_keyboard()
     if WELCOME_IMAGE.exists():
-        # Главное меню с фото — всегда удаляем текущее и отправляем фото
         await cb.message.delete()
         photo = FSInputFile(WELCOME_IMAGE)
         await cb.message.answer_photo(photo, caption=text, reply_markup=kb)
@@ -59,3 +65,4 @@ async def back_to_main(cb: CallbackQuery):
             await cb.message.delete()
             await cb.message.answer(text, reply_markup=kb)
     await cb.answer()
+

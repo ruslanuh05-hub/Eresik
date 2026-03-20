@@ -135,7 +135,8 @@ def create_app(bot=None) -> web.Application:
     """Создать aiohttp приложение. bot нужен для уведомлений (опционально)."""
     app = web.Application()
     app["bot"] = bot
+    app.router.add_get("/", lambda r: web.json_response({"ok": True, "service": "jvpn-bot"}))
+    app.router.add_get("/health", lambda r: web.json_response({"ok": True}))
     app.router.add_post(FREKASSA_CALLBACK_PATH, freekassa_callback)
     app.router.add_get("/sub/{token}.txt", subscription_handler)
-    app.router.add_get("/health", lambda r: web.json_response({"ok": True}))
     return app

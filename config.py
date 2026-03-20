@@ -26,6 +26,11 @@ FREKASSA_SECRET_2 = os.getenv("FREKASSA_SECRET_2", "")
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 FREKASSA_CALLBACK_PATH = "/pay/freekassa/callback"
 
+# Webhook: если задан PUBLIC_BASE_URL — использовать webhook (для Render/продакшн).
+# Иначе — polling (для локальной разработки). Избегает Conflict при двух экземплярах.
+USE_WEBHOOK = bool(PUBLIC_BASE_URL)
+WEBHOOK_PATH = "/webhook"
+
 # Подписка
 SUBSCRIPTION_BASE_URL = os.getenv("SUBSCRIPTION_BASE_URL", "https://sub1.jetstoreapp.ru/v2raytun-sub")
 UPSTREAM_SUB_URL = os.getenv("UPSTREAM_SUB_URL", SUBSCRIPTION_BASE_URL)

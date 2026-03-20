@@ -1,12 +1,14 @@
 """Пополнение баланса через FreeKassa."""
+
 import time
+
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from database import get_or_create_user, add_payment, add_balance
-from freekassa import create_payment_url, get_callback_url
+from freekassa import create_payment_url
 from config import FREKASSA_SHOP_ID, PUBLIC_BASE_URL, ADMIN_IDS
 
 router = Router()
@@ -18,14 +20,23 @@ class TopUpStates(StatesGroup):
 
 def topup_keyboard(is_admin: bool = False):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
     amounts = [(99, "99 ₽"), (199, "199 ₽"), (499, "499 ₽"), (999, "999 ₽")]
     rows = [
-        [InlineKeyboardButton(text=f"{amt} ₽", callback_data=f"topup:{amt}") for amt, _ in [amounts[0], amounts[1]]],
-        [InlineKeyboardButton(text=f"{amt} ₽", callback_data=f"topup:{amt}") for amt, _ in [amounts[2], amounts[3]]],
+        [
+            InlineKeyboardButton(text=f"{amt} ₽", callback_data=f"topup:{amt}")
+            for amt, _ in [amounts[0], amounts[1]]
+        ],
+        [
+            InlineKeyboardButton(text=f"{amt} ₽", callback_data=f"topup:{amt}")
+            for amt, _ in [amounts[2], amounts[3]]
+        ],
         [InlineKeyboardButton(text="✏️ Своя сумма", callback_data="topup:custom")],
     ]
+
     if is_admin:
         rows.append([InlineKeyboardButton(text="🧪 Тестовая оплата 100 ₽", callback_data="topup:test:100")])
+
     rows.append([InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -53,6 +64,7 @@ async def topup_start(cb: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("topup:"))
 async def topup_amount(cb: CallbackQuery, state: FSMContext):
     data = cb.data.split(":")
+
     if data[1] == "custom":
         await state.set_state(TopUpStates.waiting_amount)
         await cb.message.edit_text(
@@ -137,10 +149,13 @@ async def process_topup(cb: CallbackQuery, telegram_id: int, amount: float):
     await add_payment(telegram_id, amount, order_id, "", "pending")
 
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔗 Перейти к оплате", url=url)],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="topup")],
-    ])
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔗 Перейти к оплате", url=url)],
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="topup")],
+        ]
+    )
     await cb.message.edit_text(
         f"💳 *Оплата {amount:.2f} ₽*\n\n"
         "Нажмите кнопку ниже для перехода к оплате.\n"
@@ -166,13 +181,16 @@ async def do_send_payment_link(msg: Message, telegram_id: int, amount: float):
 
     await add_payment(telegram_id, amount, order_id, "", "pending")
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔗 Перейти к оплате", url=url)],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="topup")],
-    ])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔗 Перейти к оплате", url=url)],
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="topup")],
+        ]
+    )
     await msg.answer(
         f"💳 *Оплата {amount:.2f} ₽*\n\n"
         "Нажмите кнопку ниже для перехода к оплате.",
         parse_mode="Markdown",
         reply_markup=kb,
     )
+

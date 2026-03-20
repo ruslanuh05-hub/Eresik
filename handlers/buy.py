@@ -1,7 +1,9 @@
 """Покупка подписки за баланс."""
+
 import time
+
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import CallbackQuery
 from aiogram.filters import Command
 
 from database import get_or_create_user, get_plans, create_or_extend_subscription
@@ -13,12 +15,16 @@ router = Router()
 
 async def plans_keyboard():
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
     plans = await get_plans()
     rows = [
-        [InlineKeyboardButton(
-            text=f"{p['title']} — {p['price']} ₽",
-            callback_data=f"buy:{p['id']}",
-        )] for p in plans
+        [
+            InlineKeyboardButton(
+                text=f"{p['title']} — {p['price']} ₽",
+                callback_data=f"buy:{p['id']}",
+            )
+        ]
+        for p in plans
     ]
     rows.append([InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -71,11 +77,13 @@ async def buy_plan(cb: CallbackQuery):
         await cb.answer(str(e), show_alert=True)
         return
 
-    # Ссылка на подписку: наш сервер проксирует HAP с персональным сроком
-    sub_url = f"{PUBLIC_BASE_URL}/sub/{token}.txt" if PUBLIC_BASE_URL else "https://sub1.jetstoreapp.ru/v2raytun-sub"
+    sub_url = (
+        f"{PUBLIC_BASE_URL}/sub/{token}.txt"
+        if PUBLIC_BASE_URL
+        else "https://sub1.jetstoreapp.ru/v2raytun-sub"
+    )
 
     expires_str = time.strftime("%d.%m.%Y %H:%M", time.localtime(expires_at))
-
     kb = subscription_keyboard(sub_url)
 
     await cb.message.edit_text(
@@ -88,3 +96,4 @@ async def buy_plan(cb: CallbackQuery):
         reply_markup=kb,
     )
     await cb.answer("Подписка оформлена!")
+
