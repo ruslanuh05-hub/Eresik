@@ -48,7 +48,7 @@ CABINET_BG_IMAGE = Path(__file__).parent / "assets" / "cabinet_bg.png"
 CABINET_TEXT_X = 0.7  # 0.5 = центр
 CABINET_TEXT_Y_FROM_BOTTOM = 120
 CABINET_LABEL_OFFSET = -50
-CABINET_DATE_OFFSET = -20  # поднять дату/время выше (было 15)
+CABINET_DATE_OFFSET = -1100  # поднять дату/время выше (было 15)
 
 # Фото для главного меню (команда /start)
 WELCOME_IMAGE = Path(__file__).parent / "assets" / "welcome.png"
