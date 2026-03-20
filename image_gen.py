@@ -57,10 +57,23 @@ def generate_subscription_image(expires_at: int | None, nickname: str = "") -> b
     if expires_at and expires_at > int(time.time()):
         date_str = time.strftime("%d.%m.%Y", time.localtime(expires_at))
         time_str = time.strftime("%H:%M", time.localtime(expires_at))
-        draw.text((cx, text_y + CABINET_LABEL_OFFSET), "Подписка до:", fill=(255, 255, 255), font=font_small, anchor="mm")
-        _draw_text_with_outline(draw, (cx, text_y + CABINET_DATE_OFFSET), f"{date_str}  {time_str}", font_large, (80, 255, 120))
+        # Только цифры даты/времени (без подписи "Подписка до:")
+        _draw_text_with_outline(
+            draw,
+            (cx, text_y + CABINET_DATE_OFFSET),
+            f"{date_str}  {time_str}",
+            font_large,
+            (255, 255, 255),  # белый цвет для активной подписки
+        )
     else:
-        draw.text((cx, text_y + (CABINET_LABEL_OFFSET + CABINET_DATE_OFFSET) // 2), "Подписка не куплена", fill=(255, 100, 100), font=font_large, anchor="mm")
+        # Нет подписки: оставляем красный, но тоже без "Подписка до:"
+        draw.text(
+            (cx, text_y + (CABINET_LABEL_OFFSET + CABINET_DATE_OFFSET) // 2),
+            "Подписка не куплена",
+            fill=(255, 100, 100),
+            font=font_large,
+            anchor="mm",
+        )
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
