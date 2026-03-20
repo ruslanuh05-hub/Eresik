@@ -88,47 +88,59 @@ async def _notify_payment_success(request: web.Request, telegram_id: int, amount
 async def subscription_handler(request: web.Request) -> web.Response:
     """Выдать подписку по токену (проксирует upstream с проверкой срока)."""
     token = request.match_info.get("token", "").removesuffix(".txt")
-    if not token or len(token) < 10:
-        return web.Response(status=404, text="Not found")
-
-    sub = await get_subscription_by_token(token)
-    if not sub:
-        return web.Response(status=403, text="Subscription expired or not found")
-
-    if not UPSTREAM_SUB_URL:
-        return web.Response(status=502, text="Upstream not configured")
-
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(UPSTREAM_SUB_URL)
-            resp.raise_for_status()
-            body = resp.text
-    except Exception:
-        return web.Response(status=502, text="Upstream not available")
+        if not token or len(token) < 10:
+            return web.Response(status=404, text="Not found")
 
-    expires = sub["subscription_expires_at"]
-    expire_unix = expires
-    # Заменяем expire в subscription-userinfo на персональный срок
-    lines = body.split("\n")
-    new_lines = []
-    userinfo_replaced = False
-    for line in lines:
-        if line.strip().startswith("# subscription-userinfo:"):
-            # Подставляем наш expire
-            new_lines.append(f"# subscription-userinfo: upload=0; download=0; total=1073741824000; expire={expire_unix}")
-            userinfo_replaced = True
-            continue
-        new_lines.append(line)
-    if not userinfo_replaced:
-        new_lines.insert(0, f"# subscription-userinfo: upload=0; download=0; total=1073741824000; expire={expire_unix}")
-        new_lines.insert(0, "")
+        sub = await get_subscription_by_token(token)
+        if not sub:
+            return web.Response(status=403, text="Subscription expired or not found")
 
-    result = "\n".join(new_lines)
-    return web.Response(
-        text=result,
-        content_type="text/plain; charset=utf-8",
-        headers={"Cache-Control": "no-store"},
-    )
+        if not UPSTREAM_SUB_URL:
+            return web.Response(status=502, text="Upstream not configured")
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(UPSTREAM_SUB_URL)
+                resp.raise_for_status()
+                body = resp.text
+        except Exception:
+            return web.Response(status=502, text="Upstream not available")
+
+        expires = sub["subscription_expires_at"]
+        try:
+            expire_unix = int(expires)
+        except Exception as e:
+            logger.exception("Bad subscription_expires_at type (token=%s): %s", token[:12], e)
+            return web.Response(status=500, text="Bad subscription expires")
+
+        # Заменяем expire в subscription-userinfo на персональный срок
+        lines = body.split("\n")
+        new_lines = []
+        userinfo_replaced = False
+        for line in lines:
+            if line.strip().startswith("# subscription-userinfo:"):
+                # Подставляем наш expire
+                new_lines.append(
+                    f"# subscription-userinfo: upload=0; download=0; total=1073741824000; expire={expire_unix}"
+                )
+                userinfo_replaced = True
+                continue
+            new_lines.append(line)
+        if not userinfo_replaced:
+            new_lines.insert(0, f"# subscription-userinfo: upload=0; download=0; total=1073741824000; expire={expire_unix}")
+            new_lines.insert(0, "")
+
+        result = "\n".join(new_lines)
+        return web.Response(
+            text=result,
+            content_type="text/plain; charset=utf-8",
+            headers={"Cache-Control": "no-store"},
+        )
+    except Exception as e:
+        logger.exception("subscription_handler failed (token=%s): %s", (token or "")[:12], e)
+        # Не раскрываем стек пользователю, но возвращаем код 500
+        return web.Response(status=500, text="Internal server error")
 
 
 def create_app(bot=None) -> web.Application:

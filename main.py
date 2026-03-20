@@ -86,7 +86,8 @@ async def main() -> None:
         if USE_WEBHOOK and PUBLIC_BASE_URL:
             await asyncio.Event().wait()
         else:
-            await dp.start_polling(bot)
+            # Явно включаем типы обновлений, которые используются хендлерами (включая callback_query).
+            await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
         if USE_WEBHOOK and PUBLIC_BASE_URL:
             await bot.delete_webhook()

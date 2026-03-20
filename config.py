@@ -26,9 +26,11 @@ FREKASSA_SECRET_2 = os.getenv("FREKASSA_SECRET_2", "")
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 FREKASSA_CALLBACK_PATH = "/pay/freekassa/callback"
 
-# Webhook: если задан PUBLIC_BASE_URL — использовать webhook (для Render/продакшн).
-# Иначе — polling (для локальной разработки). Избегает Conflict при двух экземплярах.
-USE_WEBHOOK = bool(PUBLIC_BASE_URL)
+# Webhook:
+# - если явно задан `USE_WEBHOOK=1` — используем webhook
+# - если `USE_WEBHOOK` не задан — используем webhook только когда задан `PUBLIC_BASE_URL`
+_use_webhook_env = os.getenv("USE_WEBHOOK", "").strip().lower()
+USE_WEBHOOK = _use_webhook_env in {"1", "true", "yes", "y"} if _use_webhook_env else bool(PUBLIC_BASE_URL)
 WEBHOOK_PATH = "/webhook"
 
 # Подписка
