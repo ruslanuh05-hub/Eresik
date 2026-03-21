@@ -6,6 +6,7 @@ from html import escape
 from urllib.parse import quote
 
 from aiogram import Router, F
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import (
     CallbackQuery,
     Message,
@@ -172,15 +173,27 @@ def build_my_subscriptions_text(
     )
 
 
-async def build_cabinet_text(telegram_id: int) -> str:
-    """Текст профиля с <tg-emoji> — отправлять только как обычное текстовое сообщение, не как caption к фото."""
+async def build_cabinet_text(telegram_id: int, *, rich_emoji: bool = True) -> str:
+    """Текст профиля. rich_emoji: <tg-emoji> (только текст + HTML; при ошибке API — fallback без тегов)."""
     user = await get_or_create_user(telegram_id)
-    balance = user.get("balance") or 0
+    try:
+        balance = float(user.get("balance") or 0)
+    except (TypeError, ValueError):
+        balance = 0.0
     expires_at = user.get("subscription_expires_at")
     nickname = user.get("nickname") or user.get("username") or f"user_{telegram_id}"
     nick_safe = escape(nickname)
 
-    text = (
+    if not rich_emoji:
+        return (
+            "👤 <b>Личный кабинет</b>\n\n"
+            f"👤 Ник: <code>{nick_safe}</code>\n"
+            f"💰 Баланс: <b>{balance:.2f} ₽</b>\n"
+            f"🗓️ Подписка до: {_format_date(expires_at)}\n"
+            f"🕒 Осталось: {_format_expires(expires_at)}\n"
+        )
+
+    return (
         f'{tg(E.USER_HEADER, "👤")} <b>Личный кабинет</b>\n\n'
         f'{tg(E.USER_NICK, "👤")} Ник: <code>{nick_safe}</code>\n'
         f'{tg(E.MONEY, "💰")} Баланс: <b>{balance:.2f} ₽</b>\n'
@@ -188,7 +201,25 @@ async def build_cabinet_text(telegram_id: int) -> str:
         f'{tg(E.CLOCK, "🕒")} Осталось: {_format_expires(expires_at)}\n'
     )
 
-    return text
+
+async def _send_cabinet_message(
+    send,
+    telegram_id: int,
+    *,
+    reply_markup,
+) -> None:
+    """Отправить профиль: HTML + премиум-эмодзи; при ошибке разметки — обычные эмодзи."""
+    text = await build_cabinet_text(telegram_id, rich_emoji=True)
+    try:
+        await send(text, parse_mode="HTML", reply_markup=reply_markup)
+    except TelegramBadRequest as e:
+        err = str(e).lower()
+        if "parse" in err or "entity" in err or "can't" in err:
+            logger.warning("cabinet: HTML/tg-emoji rejected, fallback plain: %s", e)
+            plain = await build_cabinet_text(telegram_id, rich_emoji=False)
+            await send(plain, parse_mode="HTML", reply_markup=reply_markup)
+        else:
+            raise
 
 
 async def _sub_url_for_user(telegram_id: int) -> str | None:
@@ -206,10 +237,9 @@ async def _sub_url_for_user(telegram_id: int) -> str | None:
 @router.message(Command("cabinet"))
 async def cmd_my(msg: Message):
     user = await get_or_create_user(msg.from_user.id)
-    text = await build_cabinet_text(msg.from_user.id)
 
     kb = cabinet_keyboard()
-    await msg.answer(text, parse_mode="HTML", reply_markup=kb)
+    await _send_cabinet_message(msg.answer, msg.from_user.id, reply_markup=kb)
     try:
         img_bytes = generate_subscription_image(
             user.get("subscription_expires_at"),
@@ -225,10 +255,12 @@ async def cmd_my(msg: Message):
 async def show_cabinet(cb: CallbackQuery):
     """Профиль: всегда новое сообщение с фото — без edit_media (часто ломается на разных типах сообщений)."""
     await cb.answer()
+    if not cb.message:
+        logger.warning("show_cabinet: no message in callback")
+        return
     user = await get_or_create_user(cb.from_user.id)
-    text = await build_cabinet_text(cb.from_user.id)
     kb = cabinet_keyboard()
-    await cb.message.answer(text, parse_mode="HTML", reply_markup=kb)
+    await _send_cabinet_message(cb.message.answer, cb.from_user.id, reply_markup=kb)
     try:
         img_bytes = generate_subscription_image(
             user.get("subscription_expires_at"),
