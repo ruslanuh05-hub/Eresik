@@ -19,6 +19,21 @@ from image_gen import generate_subscription_image
 router = Router()
 
 
+async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, parse_mode: str = "Markdown"):
+    """Безопасно редактировать text/caption из callback."""
+    try:
+        if cb.message and cb.message.caption is not None:
+            await cb.message.edit_caption(caption=text, parse_mode=parse_mode, reply_markup=reply_markup)
+        else:
+            await cb.message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
+    except Exception:
+        try:
+            await cb.message.delete()
+        except Exception:
+            pass
+        await cb.message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
+
+
 def subscription_keyboard(sub_url: str | None) -> InlineKeyboardMarkup:
     """Кнопки открытия приложений + Назад в главное меню."""
     rows = []
@@ -214,10 +229,6 @@ async def show_my_subscriptions(cb: CallbackQuery):
             ]
         )
 
-    try:
-        await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
-    except Exception:
-        await cb.message.delete()
-        await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
     await cb.answer()
 

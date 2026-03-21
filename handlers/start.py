@@ -22,6 +22,21 @@ from config import (
 router = Router()
 
 
+async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, parse_mode: str = "Markdown"):
+    """Безопасно редактировать текст/подпись сообщения из callback."""
+    try:
+        if cb.message and cb.message.caption is not None:
+            await cb.message.edit_caption(caption=text, parse_mode=parse_mode, reply_markup=reply_markup)
+        else:
+            await cb.message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
+    except Exception:
+        try:
+            await cb.message.delete()
+        except Exception:
+            pass
+        await cb.message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
+
+
 def main_keyboard():
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -124,11 +139,7 @@ async def show_referrals(cb: CallbackQuery):
         "Отправьте ссылку другу и получите награду после его первой оплаты."
     )
     kb = main_keyboard()
-    try:
-        await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
-    except Exception:
-        await cb.message.delete()
-        await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
     await cb.answer()
 
 
@@ -150,11 +161,7 @@ async def show_instruction(cb: CallbackQuery):
             [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
         ]
     )
-    try:
-        await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
-    except Exception:
-        await cb.message.delete()
-        await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
     await cb.answer()
 
 
@@ -206,11 +213,7 @@ async def show_support(cb: CallbackQuery):
             [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
         ]
     )
-    try:
-        await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
-    except Exception:
-        await cb.message.delete()
-        await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
     await cb.answer()
 
 
@@ -231,10 +234,6 @@ async def show_about(cb: CallbackQuery):
             [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
         ]
     )
-    try:
-        await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
-    except Exception:
-        await cb.message.delete()
-        await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
     await cb.answer()
 
