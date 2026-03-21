@@ -1,17 +1,18 @@
 """Покупка подписки за баланс."""
 
+from html import escape
+
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.filters import Command
 
 from database import get_or_create_user, get_plans, create_or_extend_subscription
-from config import PUBLIC_BASE_URL, UPSTREAM_SUB_URL
 from handlers.cabinet import build_purchase_success_text, device_selection_keyboard
 
 router = Router()
 
 
-async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mode: str = "Markdown") -> None:
+async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mode: str = "HTML") -> None:
     """
     Telegram: для сообщений с фото нужно редактировать caption, а не text.
     Делаем безопасный вариант с fallback на delete+answer.
@@ -30,40 +31,43 @@ async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mo
             pass
 
 
-async def plans_keyboard():
+async def plans_keyboard(back_callback: str = "connect_menu"):
+    """Назад — в подменю «Подключиться» (или переданный callback)."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
     plans = await get_plans()
     rows = [
         [
             InlineKeyboardButton(
-                text=f"{p['title']} — {p['price']} ₽",
+                text=f"{escape(p['title'])} — {p['price']} ₽",
                 callback_data=f"buy:{p['id']}",
             )
         ]
         for p in plans
     ]
-    rows.append([InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")])
+    rows.append([InlineKeyboardButton(text="◀️ Назад", callback_data=back_callback)])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-@router.callback_query(F.data == "buy_sub")
+@router.callback_query(F.data.in_(("buy_sub", "buy_sub:subs")))
 async def buy_sub_start(cb: CallbackQuery):
     user = await get_or_create_user(cb.from_user.id)
     balance = user.get("balance") or 0
     plans = await get_plans()
+    # Из «Мои подписки» (нет активной подписки) — назад туда; из «Подключиться» — в connect_menu
+    back_cb = "my_subscriptions" if cb.data == "buy_sub:subs" else "connect_menu"
     text = (
-        "📦 *Купить подписку*\n\n"
-        f"Ваш баланс: *{balance:.2f} ₽*\n\n"
+        "📦 <b>Купить подписку</b>\n\n"
+        f"Ваш баланс: <b>{balance:.2f} ₽</b>\n\n"
         "Выберите тариф:"
     )
     for p in plans:
-        text += f"\n• {p['title']} — {p['price']} ₽"
+        text += f"\n• {escape(p['title'])} — {p['price']} ₽"
     await _safe_edit_message(
         cb.message,
         text,
-        reply_markup=await plans_keyboard(),
-        parse_mode="Markdown",
+        reply_markup=await plans_keyboard(back_callback=back_cb),
+        parse_mode="HTML",
     )
     await cb.answer()
 
@@ -71,15 +75,15 @@ async def buy_sub_start(cb: CallbackQuery):
 @router.callback_query(F.data == "plans")
 async def show_plans(cb: CallbackQuery):
     plans = await get_plans()
-    text = "📋 *Тарифы*\n\n"
+    text = "📋 <b>Тарифы</b>\n\n"
     for p in plans:
-        text += f"• *{p['title']}* — {p['price']} ₽ ({p['days']} дн.)\n"
+        text += f"• <b>{escape(p['title'])}</b> — {p['price']} ₽ ({p['days']} дн.)\n"
     text += "\nНажмите «Купить подписку» для покупки."
     await _safe_edit_message(
         cb.message,
         text,
         reply_markup=await plans_keyboard(),
-        parse_mode="Markdown",
+        parse_mode="HTML",
     )
     await cb.answer()
 
@@ -104,19 +108,12 @@ async def buy_plan(cb: CallbackQuery):
         await cb.answer(str(e), show_alert=True)
         return
 
-    # Персональная ссылка для импорта кнопками и для отображения в тексте.
-    personal_sub_url = (
-        f"{PUBLIC_BASE_URL}/sub/{token}.txt"
-        if PUBLIC_BASE_URL
-        else f"{UPSTREAM_SUB_URL}?token={token}"
-    )
-
-    success_text = build_purchase_success_text(plan["title"], personal_sub_url, expires_at)
+    success_text = build_purchase_success_text(plan["title"], expires_at)
     await _safe_edit_message(
         cb.message,
         success_text,
         reply_markup=device_selection_keyboard(),
-        parse_mode="Markdown",
+        parse_mode="HTML",
     )
     await cb.answer("Подписка оформлена!")
 

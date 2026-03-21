@@ -1,6 +1,7 @@
 """Личный кабинет пользователя."""
 
 import time as time_module
+from html import escape
 from urllib.parse import quote
 
 from aiogram import Router, F
@@ -17,11 +18,12 @@ from aiogram.filters import Command
 from database import get_or_create_user
 from image_gen import generate_subscription_image
 from config import IMPORT_BRIDGE_BASE, PUBLIC_BASE_URL, UPSTREAM_SUB_URL
+from tgemoji import E, tg
 
 router = Router()
 
 
-async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, parse_mode: str = "Markdown"):
+async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, parse_mode: str = "HTML"):
     """Безопасно редактировать text/caption из callback."""
     try:
         if cb.message and cb.message.caption is not None:
@@ -45,7 +47,7 @@ def device_selection_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="🍏 iOS", callback_data="subdev:ios"),
             ],
             [InlineKeyboardButton(text="🖥 ПК", callback_data="subdev:pc")],
-            [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="connect_menu")],
         ]
     )
 
@@ -89,9 +91,10 @@ def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardM
 
 
 def cabinet_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура личного кабинета без кнопок приложений."""
+    """Профиль: подключение через «Мои подписки», без отображения URL."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text="🚀 Подключиться", callback_data="my_subscriptions")],
             [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
         ]
     )
@@ -120,29 +123,26 @@ def _platform_title(platform: str) -> str:
     return {"android": "📱 Android", "ios": "🍏 iOS", "pc": "🖥 ПК"}.get(platform, platform)
 
 
-def build_purchase_success_text(plan_title: str, personal_sub_url: str, expires_at: int) -> str:
-    """Текст после успешной покупки: ссылка + выбор устройства."""
+def build_purchase_success_text(plan_title: str, expires_at: int) -> str:
+    """Текст после успешной покупки (без URL — импорт только кнопками)."""
     return (
-        "✅ *Подписка активирована!*\n\n"
-        f"Тариф: {plan_title}\n\n"
-        f"🔗 Ссылка подписки:\n`{personal_sub_url}`\n\n"
-        f"📅 Действует до: {_format_date(expires_at)}\n"
-        f"⏱ Осталось: {_format_expires(expires_at)}\n\n"
-        "Выберите устройство:"
+        "✅ <b>Подписка активирована!</b>\n\n"
+        f"Тариф: {escape(plan_title)}\n\n"
+        f"{tg(E.CALENDAR, '🗓️')} Действует до: {_format_date(expires_at)}\n"
+        f"{tg(E.CLOCK, '🕒')} Осталось: {_format_expires(expires_at)}\n\n"
+        "Выберите устройство и приложение — импорт откроется по кнопкам ниже."
     )
 
 
 def build_my_subscriptions_text(
-    personal_sub_url: str,
     expires_at: int,
     platform: str | None = None,
 ) -> str:
-    """Текст экрана «Мои подписки»."""
+    """Текст экрана «Мои подписки» (без URL)."""
     base = (
-        "📱 *Мои подписки*\n\n"
-        f"🔗 Ссылка подписки:\n`{personal_sub_url}`\n\n"
-        f"📅 Действует до: {_format_date(expires_at)}\n"
-        f"⏱ Осталось: {_format_expires(expires_at)}\n\n"
+        "📱 <b>Мои подписки</b>\n\n"
+        f"{tg(E.CALENDAR, '🗓️')} Действует до: {_format_date(expires_at)}\n"
+        f"{tg(E.CLOCK, '🕒')} Осталось: {_format_expires(expires_at)}\n\n"
     )
     if platform is None:
         return base + "Выберите устройство:"
@@ -157,22 +157,16 @@ async def build_cabinet_text(telegram_id: int) -> str:
     user = await get_or_create_user(telegram_id)
     balance = user.get("balance") or 0
     expires_at = user.get("subscription_expires_at")
-    token = user.get("subscription_token")
     nickname = user.get("nickname") or user.get("username") or f"user_{telegram_id}"
+    nick_safe = escape(nickname)
 
     text = (
-        "👤 *Личный кабинет*\n\n"
-        f"🆔 Ник: `{nickname}`\n"
-        f"💵 Баланс: *{balance:.2f} ₽*\n"
-        f"📅 Подписка до: {_format_date(expires_at)}\n"
-        f"⏱ Осталось: {_format_expires(expires_at)}\n"
+        f'{tg(E.USER_HEADER, "👤")} <b>Личный кабинет</b>\n\n'
+        f'{tg(E.USER_NICK, "👤")} Ник: <code>{nick_safe}</code>\n'
+        f'{tg(E.MONEY, "💰")} Баланс: <b>{balance:.2f} ₽</b>\n'
+        f'{tg(E.CALENDAR, "🗓️")} Подписка до: {_format_date(expires_at)}\n'
+        f'{tg(E.CLOCK, "🕒")} Осталось: {_format_expires(expires_at)}\n'
     )
-
-    if token and expires_at and expires_at > int(time_module.time()):
-        personal_sub_url = (
-            f"{PUBLIC_BASE_URL}/sub/{token}.txt" if PUBLIC_BASE_URL else f"{UPSTREAM_SUB_URL}?token={token}"
-        )
-        text += f"\n🔗 *Ссылка подписки:*\n`{personal_sub_url}`"
 
     return text
 
@@ -201,9 +195,9 @@ async def cmd_my(msg: Message):
             user.get("nickname") or msg.from_user.username or "",
         )
         photo = BufferedInputFile(img_bytes, filename="cabinet.png")
-        await msg.answer_photo(photo, caption=text, parse_mode="Markdown", reply_markup=kb)
+        await msg.answer_photo(photo, caption=text, parse_mode="HTML", reply_markup=kb)
     except Exception:
-        await msg.answer(text, parse_mode="Markdown", reply_markup=kb)
+        await msg.answer(text, parse_mode="HTML", reply_markup=kb)
 
 
 @router.callback_query(F.data == "cabinet")
@@ -218,19 +212,19 @@ async def show_cabinet(cb: CallbackQuery):
         )
         photo = BufferedInputFile(img_bytes, filename="cabinet.png")
         try:
-            media = InputMediaPhoto(media=photo, caption=text, parse_mode="Markdown")
+            media = InputMediaPhoto(media=photo, caption=text, parse_mode="HTML")
             await cb.message.edit_media(media=media, reply_markup=kb)
         except Exception:
-            await cb.message.answer_photo(photo, caption=text, parse_mode="Markdown", reply_markup=kb)
+            await cb.message.answer_photo(photo, caption=text, parse_mode="HTML", reply_markup=kb)
             try:
                 await cb.message.delete()
             except Exception:
                 pass
     except Exception:
         try:
-            await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
+            await cb.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
         except Exception:
-            await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+            await cb.message.answer(text, parse_mode="HTML", reply_markup=kb)
             try:
                 await cb.message.delete()
             except Exception:
@@ -248,22 +242,22 @@ async def cmd_sub(msg: Message):
 
     now = int(time_module.time())
     if token and expires_at and expires_at > now and personal_sub_url:
-        text = build_my_subscriptions_text(personal_sub_url, expires_at, platform=None)
+        text = build_my_subscriptions_text(expires_at, platform=None)
         kb = device_selection_keyboard()
     else:
         text = (
-            "📱 *Мои подписки*\n\n"
+            "📱 <b>Мои подписки</b>\n\n"
             "Подписка не активна.\n\n"
             "Купите подписку в разделе «Купить подписку»."
         )
         kb = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub")],
-                [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
+                [InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub:subs")],
+                [InlineKeyboardButton(text="◀️ Назад", callback_data="connect_menu")],
             ]
         )
 
-    await msg.answer(text, parse_mode="Markdown", reply_markup=kb)
+    await msg.answer(text, parse_mode="HTML", reply_markup=kb)
 
 
 @router.callback_query(F.data == "my_subscriptions")
@@ -276,22 +270,22 @@ async def show_my_subscriptions(cb: CallbackQuery):
 
     now = int(time_module.time())
     if token and expires_at and expires_at > now and personal_sub_url:
-        text = build_my_subscriptions_text(personal_sub_url, expires_at, platform=None)
+        text = build_my_subscriptions_text(expires_at, platform=None)
         kb = device_selection_keyboard()
     else:
         text = (
-            "📱 *Мои подписки*\n\n"
+            "📱 <b>Мои подписки</b>\n\n"
             "Подписка не активна.\n\n"
             "Купите подписку в разделе «Купить подписку»."
         )
         kb = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub")],
-                [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
+                [InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub:subs")],
+                [InlineKeyboardButton(text="◀️ Назад", callback_data="connect_menu")],
             ]
         )
 
-    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
+    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
     await cb.answer()
 
 
@@ -308,8 +302,8 @@ async def handle_subdev_step(cb: CallbackQuery):
         if not (token and expires_at and expires_at > now and personal_sub_url):
             await cb.answer("Подписка не активна", show_alert=True)
             return
-        text = build_my_subscriptions_text(personal_sub_url, expires_at, platform=None)
-        await _safe_edit_message(cb, text, reply_markup=device_selection_keyboard(), parse_mode="Markdown")
+        text = build_my_subscriptions_text(expires_at, platform=None)
+        await _safe_edit_message(cb, text, reply_markup=device_selection_keyboard(), parse_mode="HTML")
         await cb.answer()
         return
 
@@ -327,12 +321,12 @@ async def handle_subdev_step(cb: CallbackQuery):
         await cb.answer("Подписка не активна", show_alert=True)
         return
 
-    text = build_my_subscriptions_text(personal_sub_url, expires_at, platform=platform)
+    text = build_my_subscriptions_text(expires_at, platform=platform)
     if not IMPORT_BRIDGE_BASE:
         text += (
-            "\n\n⚠️ Для кнопок импорта задайте на сервере переменную *PUBLIC_BASE_URL* "
-            "(или *IMPORT_BRIDGE_BASE*) — адрес, где доступен этот бот по HTTPS."
+            "\n\n⚠️ Для кнопок импорта задайте на сервере переменную <b>PUBLIC_BASE_URL</b> "
+            "(или <b>IMPORT_BRIDGE_BASE</b>) — адрес, где доступен этот бот по HTTPS."
         )
     kb = app_import_keyboard(platform, personal_sub_url)
-    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
+    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
     await cb.answer()

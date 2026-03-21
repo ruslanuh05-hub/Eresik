@@ -33,7 +33,7 @@ async def main() -> None:
         logger.error("BOT_TOKEN not set. Create .env from .env.example")
         return
 
-    bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
+    bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
 
     dp.include_router(start_router)

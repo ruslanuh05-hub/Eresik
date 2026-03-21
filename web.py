@@ -91,7 +91,7 @@ async def _notify_payment_success(request: web.Request, telegram_id: int, amount
         try:
             await bot.send_message(
                 telegram_id,
-                f"✅ Баланс пополнен на *{amount:.2f} ₽*\n\nТекущий баланс: *{new_balance:.2f} ₽*",
+                f"✅ Баланс пополнен на <b>{amount:.2f} ₽</b>\n\nТекущий баланс: <b>{new_balance:.2f} ₽</b>",
             )
         except Exception:
             pass
@@ -183,7 +183,7 @@ async def subscription_handler(request: web.Request) -> web.Response:
     .meta {{ background:#0f172a; border:1px solid #1f2937; border-radius:10px; padding:12px; margin:14px 0; }}
     .meta p {{ margin:6px 0; color:#d1d5db; }}
     a.btn {{ display:block; text-decoration:none; color:#fff; background:#2563eb; padding:12px 14px; border-radius:10px; margin:10px 0; text-align:center; }}
-    code {{ word-break:break-all; display:block; background:#1f2937; padding:10px; border-radius:8px; }}
+    .hint {{ color:#9ca3af; font-size:14px; margin-top:16px; }}
   </style>
 </head>
 <body>
@@ -204,8 +204,7 @@ async def subscription_handler(request: web.Request) -> web.Response:
     <a class="btn" href="{happ_link}">Открыть в Happ</a>
     <a class="btn" href="{hiddify_link}">Открыть в Hiddify</a>
     <a class="btn" href="{v2raytun_link}">Открыть в v2RayTun</a>
-    <p>Если кнопки не сработали, скопируйте URL и вставьте в приложение вручную:</p>
-    <code>{sub_url}</code>
+    <p class="hint">Если кнопки не сработали, откройте эту страницу с телефона и нажмите снова.</p>
   </div>
 </body>
 </html>

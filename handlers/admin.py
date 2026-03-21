@@ -1,4 +1,6 @@
 """Админ-панель: изменение цены за 1 день."""
+from html import escape
+
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.filters import Command, Filter
@@ -7,6 +9,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 from config import ADMIN_IDS
 from database import get_price_per_day, set_price_per_day, get_plans
+from tgemoji import E
 
 router = Router()
 
@@ -25,7 +28,13 @@ class AdminStates(StatesGroup):
 def admin_keyboard():
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💰 Изменить цену за 1 день", callback_data="admin:price")],
+        [
+            InlineKeyboardButton(
+                text="Изменить цену за 1 день",
+                callback_data="admin:price",
+                icon_custom_emoji_id=E.MONEY,
+            )
+        ],
         [InlineKeyboardButton(text="◀️ Закрыть", callback_data="admin:close")],
     ])
 
@@ -36,14 +45,14 @@ async def cmd_admin(msg: Message):
     plans = await get_plans()
     month_price = round(30 * price)
     text = (
-        "⚙️ *Админ-панель*\n\n"
-        f"Цена за 1 день: *{price:.2f} ₽*\n"
+        "⚙️ <b>Админ-панель</b>\n\n"
+        f"Цена за 1 день: <b>{price:.2f} ₽</b>\n"
         f"(30 дней = {month_price} ₽)\n\n"
-        "*Текущие тарифы:*\n"
+        "<b>Текущие тарифы:</b>\n"
     )
     for p in plans:
-        text += f"• {p['title']} — {p['price']} ₽\n"
-    await msg.answer(text, parse_mode="Markdown", reply_markup=admin_keyboard())
+        text += f"• {escape(p['title'])} — {p['price']} ₽\n"
+    await msg.answer(text, parse_mode="HTML", reply_markup=admin_keyboard())
 
 
 @router.callback_query(F.data == "admin:price", AdminFilter())
@@ -52,10 +61,10 @@ async def admin_set_price(cb: CallbackQuery, state: FSMContext):
     price = await get_price_per_day()
     month_price = round(30 * price)
     await cb.message.edit_text(
-        f"💰 *Изменение цены*\n\n"
+        f"💰 <b>Изменение цены</b>\n\n"
         f"Сейчас: {price:.2f} ₽/день (месяц = {month_price} ₽)\n\n"
         "Введите новую цену за 1 день в рублях (например: 2.5 или 3):",
-        parse_mode="Markdown",
+        parse_mode="HTML",
     )
     await cb.answer()
 
@@ -82,13 +91,13 @@ async def admin_price_received(msg: Message, state: FSMContext):
     plans = await get_plans()
     month_price = round(30 * price)
     text = (
-        f"✅ Цена обновлена: *{price:.2f} ₽*/день\n"
+        f"✅ Цена обновлена: <b>{price:.2f} ₽</b>/день\n"
         f"(30 дней = {month_price} ₽)\n\n"
-        "*Тарифы:*\n"
+        "<b>Тарифы:</b>\n"
     )
     for p in plans:
-        text += f"• {p['title']} — {p['price']} ₽\n"
-    await msg.answer(text, parse_mode="Markdown", reply_markup=admin_keyboard())
+        text += f"• {escape(p['title'])} — {p['price']} ₽\n"
+    await msg.answer(text, parse_mode="HTML", reply_markup=admin_keyboard())
 
 
 @router.callback_query(F.data == "admin:close", AdminFilter())

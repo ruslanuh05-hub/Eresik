@@ -1,9 +1,13 @@
 """Команды /start и главное меню."""
+from html import escape
+
 from aiogram import Router, F
+from aiogram.enums import ParseMode
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.filters import CommandStart
 
 from database import get_or_create_user
+from tgemoji import E, tg
 from config import (
     WELCOME_IMAGE,
     SUPPORT_USERNAME,
@@ -20,7 +24,7 @@ from config import (
 router = Router()
 
 
-async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, parse_mode: str = "Markdown"):
+async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, parse_mode: str = "HTML"):
     """Безопасно редактировать текст/подпись сообщения из callback."""
     try:
         if cb.message and cb.message.caption is not None:
@@ -42,7 +46,11 @@ def main_keyboard():
         inline_keyboard=[
             [InlineKeyboardButton(text="🚀 Подключиться", callback_data="connect_menu")],
             [
-                InlineKeyboardButton(text="👤 Профиль", callback_data="cabinet"),
+                InlineKeyboardButton(
+                    text="Профиль",
+                    callback_data="cabinet",
+                    icon_custom_emoji_id=E.USER_HEADER,
+                ),
                 InlineKeyboardButton(text="👥 Рефералы", callback_data="referrals"),
             ],
             [InlineKeyboardButton(text="📖 Инструкция", callback_data="instruction")],
@@ -56,8 +64,8 @@ def main_keyboard():
 
 def _welcome_text() -> str:
     return (
-        "👋 Добро пожаловать в JetVPN!\n\n"
-        "Выберите действие в меню ниже:"
+        f'{tg(E.HEART, "❤️")} <b>Добро пожаловать в JetVPN!</b>\n\n'
+        f'Выберите нужное действие в меню ниже {tg(E.ARROW_DOWN, "⬇️")}'
     )
 
 
@@ -68,25 +76,25 @@ async def cmd_start(msg: Message):
     kb = main_keyboard()
     if WELCOME_IMAGE.exists():
         photo = FSInputFile(WELCOME_IMAGE)
-        await msg.answer_photo(photo, caption=text, reply_markup=kb)
+        await msg.answer_photo(photo, caption=text, parse_mode=ParseMode.HTML, reply_markup=kb)
     else:
-        await msg.answer(text, reply_markup=kb)
+        await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=kb)
 
 
 @router.callback_query(F.data == "main_menu")
 async def back_to_main(cb: CallbackQuery):
-    text = "Выберите действие:"
+    text = _welcome_text()
     kb = main_keyboard()
     if WELCOME_IMAGE.exists():
         await cb.message.delete()
         photo = FSInputFile(WELCOME_IMAGE)
-        await cb.message.answer_photo(photo, caption=text, reply_markup=kb)
+        await cb.message.answer_photo(photo, caption=text, parse_mode=ParseMode.HTML, reply_markup=kb)
     else:
         try:
-            await cb.message.edit_text(text, reply_markup=kb)
+            await cb.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb)
         except Exception:
             await cb.message.delete()
-            await cb.message.answer(text, reply_markup=kb)
+            await cb.message.answer(text, parse_mode=ParseMode.HTML, reply_markup=kb)
     await cb.answer()
 
 
@@ -107,18 +115,18 @@ def connect_keyboard():
 async def show_connect_menu(cb: CallbackQuery):
     """Окно 'Подключиться' с быстрыми действиями."""
     text = (
-        "🚀 *Подключиться*\n\n"
+        "🚀 <b>Подключиться</b>\n\n"
         "Выберите действие:"
     )
     kb = connect_keyboard()
     try:
         if cb.message.caption is not None:
-            await cb.message.edit_caption(caption=text, parse_mode="Markdown", reply_markup=kb)
+            await cb.message.edit_caption(caption=text, parse_mode=ParseMode.HTML, reply_markup=kb)
         else:
-            await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
+            await cb.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb)
     except Exception:
         await cb.message.delete()
-        await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+        await cb.message.answer(text, parse_mode=ParseMode.HTML, reply_markup=kb)
     await cb.answer()
 
 
@@ -130,14 +138,14 @@ async def show_referrals(cb: CallbackQuery):
     bot_username = (await cb.bot.me()).username
     invite_link = f"https://t.me/{bot_username}?start={code}" if bot_username else "Ссылка недоступна"
     text = (
-        "👥 *Реферальная система*\n\n"
+        "👥 <b>Реферальная система</b>\n\n"
         "Приглашайте друзей и получайте бонусы.\n\n"
-        f"Ваш реферальный код: `{code}`\n"
-        f"Ваша ссылка: `{invite_link}`\n\n"
+        f"Ваш реферальный код: <code>{escape(code)}</code>\n"
+        f"Ваша ссылка: <code>{escape(invite_link)}</code>\n\n"
         "Отправьте ссылку другу и получите награду после его первой оплаты."
     )
     kb = main_keyboard()
-    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
+    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
     await cb.answer()
 
 
@@ -147,7 +155,7 @@ async def show_instruction(cb: CallbackQuery):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
     text = (
-        "📖 *Инструкция по подключению*\n\n"
+        "📖 <b>Инструкция по подключению</b>\n\n"
         "Выберите платформу, и я отправлю видео-инструкцию:"
     )
     kb = InlineKeyboardMarkup(
@@ -159,7 +167,7 @@ async def show_instruction(cb: CallbackQuery):
             [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
         ]
     )
-    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
+    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
     await cb.answer()
 
 
@@ -200,10 +208,10 @@ async def show_support(cb: CallbackQuery):
 
     support_url = f"https://t.me/{SUPPORT_USERNAME.lstrip('@')}"
     text = (
-        "💬 *Поддержка JetVPN*\n\n"
+        "💬 <b>Поддержка JetVPN</b>\n\n"
         "Если возникли вопросы с подключением или оплатой,\n"
         "напишите в поддержку:\n"
-        f"{SUPPORT_USERNAME}"
+        f"{escape(SUPPORT_USERNAME)}"
     )
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -211,7 +219,7 @@ async def show_support(cb: CallbackQuery):
             [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
         ]
     )
-    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
+    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
     await cb.answer()
 
 
@@ -221,7 +229,7 @@ async def show_about(cb: CallbackQuery):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
     text = (
-        "ℹ️ *О нас*\n\n"
+        "ℹ️ <b>О нас</b>\n\n"
         "JetVPN — сервис для стабильного и удобного подключения.\n"
         "Мы постоянно улучшаем качество и поддержку пользователей."
     )
@@ -232,7 +240,7 @@ async def show_about(cb: CallbackQuery):
             [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
         ]
     )
-    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
+    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
     await cb.answer()
 
 
@@ -240,7 +248,7 @@ async def show_about(cb: CallbackQuery):
 async def send_privacy_policy(cb: CallbackQuery):
     from legal_texts import privacy_policy_text
 
-    await cb.message.answer(privacy_policy_text(), parse_mode="Markdown")
+    await cb.message.answer(privacy_policy_text(), parse_mode=ParseMode.HTML)
     await cb.answer()
 
 
@@ -248,6 +256,6 @@ async def send_privacy_policy(cb: CallbackQuery):
 async def send_terms_of_use(cb: CallbackQuery):
     from legal_texts import terms_of_use_text
 
-    await cb.message.answer(terms_of_use_text(), parse_mode="Markdown")
+    await cb.message.answer(terms_of_use_text(), parse_mode=ParseMode.HTML)
     await cb.answer()
 

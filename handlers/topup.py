@@ -18,7 +18,7 @@ class TopUpStates(StatesGroup):
     waiting_amount = State()
 
 
-async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mode: str = "Markdown") -> None:
+async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mode: str = "HTML") -> None:
     """
     Для сообщений с фото редактируем caption, иначе text.
     Если редактирование не удалось — удаляем и отправляем новое сообщение.
@@ -55,7 +55,7 @@ def topup_keyboard(is_admin: bool = False):
     if is_admin:
         rows.append([InlineKeyboardButton(text="🧪 Тестовая оплата 100 ₽", callback_data="topup:test:100")])
 
-    rows.append([InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")])
+    rows.append([InlineKeyboardButton(text="◀️ Назад", callback_data="connect_menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -67,15 +67,15 @@ async def topup_start(cb: CallbackQuery, state: FSMContext):
     is_admin = cb.from_user.id in ADMIN_IDS
 
     text = (
-        f"💳 *Пополнение баланса*\n\n"
-        f"Текущий баланс: *{balance:.2f} ₽*\n\n"
+        f"💳 <b>Пополнение баланса</b>\n\n"
+        f"Текущий баланс: <b>{balance:.2f} ₽</b>\n\n"
         "Выберите сумму или введите свою (минимум 50 ₽):"
     )
     await _safe_edit_message(
         cb.message,
         text,
         reply_markup=topup_keyboard(is_admin),
-        parse_mode="Markdown",
+        parse_mode="HTML",
     )
     await cb.answer()
 
@@ -90,7 +90,7 @@ async def topup_amount(cb: CallbackQuery, state: FSMContext):
             cb.message,
             "✏️ Введите сумму пополнения (минимум 50 ₽):",
             reply_markup=None,
-            parse_mode="Markdown",
+            parse_mode="HTML",
         )
         await cb.answer()
         return
@@ -145,11 +145,11 @@ async def process_test_payment(cb: CallbackQuery, telegram_id: int, amount: floa
     new_balance = await add_balance(telegram_id, amount)
     await _safe_edit_message(
         cb.message,
-        f"🧪 *Тестовая оплата выполнена*\n\n"
-        f"Зачислено: *{amount:.2f} ₽*\n"
-        f"Новый баланс: *{new_balance:.2f} ₽*",
+        f"🧪 <b>Тестовая оплата выполнена</b>\n\n"
+        f"Зачислено: <b>{amount:.2f} ₽</b>\n"
+        f"Новый баланс: <b>{new_balance:.2f} ₽</b>",
         reply_markup=topup_keyboard(is_admin=True),
-        parse_mode="Markdown",
+        parse_mode="HTML",
     )
 
 
@@ -160,7 +160,7 @@ async def process_topup(cb: CallbackQuery, telegram_id: int, amount: float):
             cb.message,
             "⚠️ Оплата через FreeKassa не настроена. Обратитесь к администратору.",
             reply_markup=None,
-            parse_mode="Markdown",
+            parse_mode="HTML",
         )
         return
 
@@ -182,11 +182,11 @@ async def process_topup(cb: CallbackQuery, telegram_id: int, amount: float):
     )
     await _safe_edit_message(
         cb.message,
-        f"💳 *Оплата {amount:.2f} ₽*\n\n"
+        f"💳 <b>Оплата {amount:.2f} ₽</b>\n\n"
         "Нажмите кнопку ниже для перехода к оплате.\n"
         "После успешной оплаты баланс пополнится автоматически.",
         reply_markup=kb,
-        parse_mode="Markdown",
+        parse_mode="HTML",
     )
 
 
@@ -213,9 +213,9 @@ async def do_send_payment_link(msg: Message, telegram_id: int, amount: float):
         ]
     )
     await msg.answer(
-        f"💳 *Оплата {amount:.2f} ₽*\n\n"
+        f"💳 <b>Оплата {amount:.2f} ₽</b>\n\n"
         "Нажмите кнопку ниже для перехода к оплате.",
-        parse_mode="Markdown",
+        parse_mode="HTML",
         reply_markup=kb,
     )
 
