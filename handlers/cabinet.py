@@ -173,9 +173,8 @@ def build_my_subscriptions_text(
     )
 
 
-async def build_cabinet_text(telegram_id: int, *, rich_emoji: bool = True) -> str:
-    """Текст профиля. rich_emoji: <tg-emoji> (только текст + HTML; при ошибке API — fallback без тегов)."""
-    user = await get_or_create_user(telegram_id)
+def _cabinet_html(user: dict, telegram_id: int, *, rich_emoji: bool) -> str:
+    """Текст профиля (HTML)."""
     try:
         balance = float(user.get("balance") or 0)
     except (TypeError, ValueError):
@@ -202,24 +201,68 @@ async def build_cabinet_text(telegram_id: int, *, rich_emoji: bool = True) -> st
     )
 
 
-async def _send_cabinet_message(
-    send,
-    telegram_id: int,
+def _cabinet_plaintext(user: dict, telegram_id: int) -> str:
+    """Профиль без HTML (если Telegram отклоняет разметку)."""
+    try:
+        balance = float(user.get("balance") or 0)
+    except (TypeError, ValueError):
+        balance = 0.0
+    expires_at = user.get("subscription_expires_at")
+    nickname = user.get("nickname") or user.get("username") or f"user_{telegram_id}"
+    return (
+        "Личный кабинет\n\n"
+        f"Ник: {nickname}\n"
+        f"Баланс: {balance:.2f} ₽\n"
+        f"Подписка до: {_format_date(expires_at)}\n"
+        f"Осталось: {_format_expires(expires_at)}\n"
+    )
+
+
+async def build_cabinet_text(telegram_id: int, *, rich_emoji: bool = True) -> str:
+    """Текст профиля (для совместимости)."""
+    user = await get_or_create_user(telegram_id)
+    return _cabinet_html(user, telegram_id, rich_emoji=rich_emoji)
+
+
+async def _deliver_cabinet(
+    bot,
+    chat_id: int,
+    telegram_user_id: int,
     *,
     reply_markup,
 ) -> None:
-    """Отправить профиль: HTML + премиум-эмодзи; при ошибке разметки — обычные эмодзи."""
-    text = await build_cabinet_text(telegram_id, rich_emoji=True)
-    try:
-        await send(text, parse_mode="HTML", reply_markup=reply_markup)
-    except TelegramBadRequest as e:
-        err = str(e).lower()
-        if "parse" in err or "entity" in err or "can't" in err:
-            logger.warning("cabinet: HTML/tg-emoji rejected, fallback plain: %s", e)
-            plain = await build_cabinet_text(telegram_id, rich_emoji=False)
-            await send(plain, parse_mode="HTML", reply_markup=reply_markup)
-        else:
-            raise
+    """
+    Отправить профиль в чат. Используем bot.send_message (надёжно при InaccessibleMessage).
+    Несколько попыток: HTML+tg-emoji → HTML без tg-emoji → простой текст.
+    """
+    user = await get_or_create_user(telegram_user_id)
+    attempts: list[tuple[str, str | None]] = [
+        (_cabinet_html(user, telegram_user_id, rich_emoji=True), "HTML"),
+        (_cabinet_html(user, telegram_user_id, rich_emoji=False), "HTML"),
+        (_cabinet_plaintext(user, telegram_user_id), None),
+    ]
+    last_err: TelegramBadRequest | None = None
+    for text, parse_mode in attempts:
+        try:
+            if parse_mode:
+                await bot.send_message(
+                    chat_id,
+                    text,
+                    parse_mode=parse_mode,
+                    reply_markup=reply_markup,
+                )
+            else:
+                await bot.send_message(chat_id, text, reply_markup=reply_markup)
+            return
+        except TelegramBadRequest as e:
+            last_err = e
+            logger.warning(
+                "cabinet: send_message failed (parse_mode=%r): %s",
+                parse_mode,
+                e,
+            )
+    if last_err:
+        raise last_err
 
 
 async def _sub_url_for_user(telegram_id: int) -> str | None:
@@ -239,41 +282,58 @@ async def cmd_my(msg: Message):
     user = await get_or_create_user(msg.from_user.id)
 
     kb = cabinet_keyboard()
-    await _send_cabinet_message(msg.answer, msg.from_user.id, reply_markup=kb)
+    try:
+        await _deliver_cabinet(msg.bot, msg.chat.id, msg.from_user.id, reply_markup=kb)
+    except Exception:
+        logger.exception("cmd_my: _deliver_cabinet failed")
+        await msg.answer(
+            "Не удалось открыть профиль. Попробуйте позже или обратитесь в поддержку.",
+        )
+        return
     try:
         img_bytes = generate_subscription_image(
             user.get("subscription_expires_at"),
             user.get("nickname") or msg.from_user.username or "",
         )
         photo = BufferedInputFile(img_bytes, filename="cabinet.png")
-        await msg.answer_photo(photo)
+        await msg.bot.send_photo(msg.chat.id, photo)
     except Exception:
         logger.exception("cmd_my: cabinet image failed (text already sent)")
 
 
 @router.callback_query(F.data == "cabinet")
 async def show_cabinet(cb: CallbackQuery):
-    """Профиль: всегда новое сообщение с фото — без edit_media (часто ломается на разных типах сообщений)."""
+    """Профиль: send_message в чат пользователя (не reply на сообщение — работает с InaccessibleMessage)."""
     await cb.answer()
-    if not cb.message:
-        logger.warning("show_cabinet: no message in callback")
-        return
-    user = await get_or_create_user(cb.from_user.id)
+    uid = cb.from_user.id
+    user = await get_or_create_user(uid)
     kb = cabinet_keyboard()
-    await _send_cabinet_message(cb.message.answer, cb.from_user.id, reply_markup=kb)
+    try:
+        await _deliver_cabinet(cb.bot, uid, uid, reply_markup=kb)
+    except Exception:
+        logger.exception("show_cabinet: _deliver_cabinet failed")
+        try:
+            await cb.bot.send_message(
+                uid,
+                "Не удалось открыть профиль. Напишите команду /my",
+            )
+        except Exception:
+            pass
+        return
     try:
         img_bytes = generate_subscription_image(
             user.get("subscription_expires_at"),
             user.get("nickname") or cb.from_user.username or "",
         )
         photo = BufferedInputFile(img_bytes, filename="cabinet.png")
-        await cb.message.answer_photo(photo)
+        await cb.bot.send_photo(uid, photo)
     except Exception:
         logger.exception("cabinet: image failed after text (profile text already shown)")
-    try:
-        await cb.message.delete()
-    except Exception as del_err:
-        logger.debug("cabinet: could not delete old message: %s", del_err)
+    if isinstance(cb.message, Message):
+        try:
+            await cb.message.delete()
+        except Exception as del_err:
+            logger.debug("cabinet: could not delete old message: %s", del_err)
 
 
 @router.message(Command("sub"))

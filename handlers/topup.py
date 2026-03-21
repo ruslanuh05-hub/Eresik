@@ -55,7 +55,7 @@ def topup_keyboard(is_admin: bool = False):
     if is_admin:
         rows.append([InlineKeyboardButton(text="🧪 Тестовая оплата 100 ₽", callback_data="topup:test:100")])
 
-    rows.append([InlineKeyboardButton(text="◀️ Назад", callback_data="connect_menu")])
+    rows.append([InlineKeyboardButton(text="◀️ В главное меню", callback_data="main_menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
