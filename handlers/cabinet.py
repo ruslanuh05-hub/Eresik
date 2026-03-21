@@ -27,11 +27,13 @@ async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, pa
         else:
             await cb.message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
     except Exception:
+        # Важно: сначала отправляем новое сообщение, и только затем удаляем старое.
+        # Иначе при ошибке отправки пользователь видит "пропавшее" меню.
+        await cb.message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
         try:
             await cb.message.delete()
         except Exception:
             pass
-        await cb.message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
 
 
 def subscription_keyboard(sub_url: str | None) -> InlineKeyboardMarkup:
@@ -208,6 +210,9 @@ async def show_my_subscriptions(cb: CallbackQuery):
 
     now = int(time_module.time())
     if token and expires_at and expires_at > now and personal_sub_url:
+        hiddify_link = f"hiddify://import/{personal_sub_url}#JetVPN"
+        v2raytun_link = f"v2raytun://import/{personal_sub_url}"
+        happ_link = f"happ://import/{personal_sub_url}"
         text = (
             "📱 *Мои подписки*\n\n"
             f"🔗 Ссылка подписки:\n`{personal_sub_url}`\n\n"
@@ -216,6 +221,13 @@ async def show_my_subscriptions(cb: CallbackQuery):
             "Нажмите кнопку ниже, чтобы открыть в приложении:"
         )
         kb = subscription_keyboard(personal_sub_url)
+        fallback_text = (
+            f"{text}\n\n"
+            "Если кнопки не открываются, скопируйте ссылку для приложения:\n"
+            f"`{hiddify_link}`\n"
+            f"`{v2raytun_link}`\n"
+            f"`{happ_link}`"
+        )
     else:
         text = (
             "📱 *Мои подписки*\n\n"
@@ -228,7 +240,19 @@ async def show_my_subscriptions(cb: CallbackQuery):
                 [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
             ]
         )
+        fallback_text = text
 
-    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
+    try:
+        await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
+    except Exception:
+        # Последний fallback: показать экран без проблемной клавиатуры.
+        await _safe_edit_message(
+            cb,
+            fallback_text,
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")]]
+            ),
+            parse_mode="Markdown",
+        )
     await cb.answer()
 
