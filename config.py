@@ -12,6 +12,21 @@ ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.
 PUBLIC_BRAND_NAME = os.getenv("PUBLIC_BRAND_NAME", "JetVpn")
 PUBLIC_TG_URL = os.getenv("PUBLIC_TG_URL", "https://t.me/2helper")
 PUBLIC_SITE_URL = os.getenv("PUBLIC_SITE_URL", "https://sub1.jetstoreapp.ru/v2raytun-sub")
+SUPPORT_USERNAME = os.getenv("SUPPORT_USERNAME", "@JetStoreHelper")
+PRIVACY_POLICY_URL = os.getenv("PRIVACY_POLICY_URL", "https://example.com/privacy")
+TERMS_URL = os.getenv("TERMS_URL", "https://example.com/terms")
+ABOUT_URL = os.getenv("ABOUT_URL", "https://example.com/about")
+
+# Видео/страницы инструкций по платформам
+GUIDE_ANDROID_URL = os.getenv("GUIDE_ANDROID_URL", "https://example.com/guide/android")
+GUIDE_IOS_URL = os.getenv("GUIDE_IOS_URL", "https://example.com/guide/ios")
+GUIDE_ANDROID_TV_URL = os.getenv("GUIDE_ANDROID_TV_URL", "https://example.com/guide/android-tv")
+GUIDE_PC_URL = os.getenv("GUIDE_PC_URL", "https://example.com/guide/pc")
+# Прямые ссылки на видео (mp4/file_id). Если пусто — бот отправит GUIDE_*_URL.
+GUIDE_ANDROID_VIDEO = os.getenv("GUIDE_ANDROID_VIDEO", "")
+GUIDE_IOS_VIDEO = os.getenv("GUIDE_IOS_VIDEO", "")
+GUIDE_ANDROID_TV_VIDEO = os.getenv("GUIDE_ANDROID_TV_VIDEO", "")
+GUIDE_PC_VIDEO = os.getenv("GUIDE_PC_VIDEO", "")
 
 # База данных
 # Render: DATABASE_URL создаётся автоматически при добавлении PostgreSQL

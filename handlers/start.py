@@ -4,7 +4,20 @@ from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.filters import CommandStart
 
 from database import get_or_create_user
-from config import WELCOME_IMAGE
+from config import (
+    WELCOME_IMAGE,
+    SUPPORT_USERNAME,
+    PRIVACY_POLICY_URL,
+    TERMS_URL,
+    GUIDE_ANDROID_URL,
+    GUIDE_IOS_URL,
+    GUIDE_ANDROID_TV_URL,
+    GUIDE_PC_URL,
+    GUIDE_ANDROID_VIDEO,
+    GUIDE_IOS_VIDEO,
+    GUIDE_ANDROID_TV_VIDEO,
+    GUIDE_PC_VIDEO,
+)
 
 router = Router()
 
@@ -14,15 +27,16 @@ def main_keyboard():
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text="🚀 Подключиться", callback_data="my_subscriptions")],
             [
-                InlineKeyboardButton(text="👤 Личный кабинет", callback_data="cabinet"),
-                InlineKeyboardButton(text="📱 Мои подписки", callback_data="my_subscriptions"),
+                InlineKeyboardButton(text="👤 Профиль", callback_data="cabinet"),
+                InlineKeyboardButton(text="👥 Рефералы", callback_data="referrals"),
             ],
+            [InlineKeyboardButton(text="📖 Инструкция", callback_data="instruction")],
             [
-                InlineKeyboardButton(text="💳 Пополнить баланс", callback_data="topup"),
-                InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub"),
+                InlineKeyboardButton(text="💬 Поддержка", callback_data="support"),
+                InlineKeyboardButton(text="ℹ️ О нас", callback_data="about"),
             ],
-            [InlineKeyboardButton(text="📋 Тарифы", callback_data="plans")],
         ]
     )
 
@@ -30,11 +44,7 @@ def main_keyboard():
 def _welcome_text() -> str:
     return (
         "👋 Добро пожаловать в JetVPN!\n\n"
-        "Здесь вы можете:\n"
-        "• Пополнить баланс и купить подписку\n"
-        "• Управлять своей подпиской\n"
-        "• Получить ссылку на VPN для v2raytun\n\n"
-        "Выберите действие:"
+        "Выберите действие в меню ниже:"
     )
 
 
@@ -64,5 +74,135 @@ async def back_to_main(cb: CallbackQuery):
         except Exception:
             await cb.message.delete()
             await cb.message.answer(text, reply_markup=kb)
+    await cb.answer()
+
+
+@router.callback_query(F.data == "referrals")
+async def show_referrals(cb: CallbackQuery):
+    """Реферальная система (базовая версия)."""
+    await get_or_create_user(cb.from_user.id, cb.from_user.username)
+    code = f"ref_{cb.from_user.id}"
+    bot_username = (await cb.bot.me()).username
+    invite_link = f"https://t.me/{bot_username}?start={code}" if bot_username else "Ссылка недоступна"
+    text = (
+        "👥 *Реферальная система*\n\n"
+        "Приглашайте друзей и получайте бонусы.\n\n"
+        f"Ваш реферальный код: `{code}`\n"
+        f"Ваша ссылка: `{invite_link}`\n\n"
+        "Отправьте ссылку другу и получите награду после его первой оплаты."
+    )
+    kb = main_keyboard()
+    try:
+        await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
+    except Exception:
+        await cb.message.delete()
+        await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    await cb.answer()
+
+
+@router.callback_query(F.data == "instruction")
+async def show_instruction(cb: CallbackQuery):
+    """Инструкция: выбор платформы, после чего бот присылает видео."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+    text = (
+        "📖 *Инструкция по подключению*\n\n"
+        "Выберите платформу, и я отправлю видео-инструкцию:"
+    )
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📱 Android", callback_data="instruction:android")],
+            [InlineKeyboardButton(text="🍏 iOS", callback_data="instruction:ios")],
+            [InlineKeyboardButton(text="📺 Android TV", callback_data="instruction:android_tv")],
+            [InlineKeyboardButton(text="🖥 ПК", callback_data="instruction:pc")],
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
+        ]
+    )
+    try:
+        await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
+    except Exception:
+        await cb.message.delete()
+        await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    await cb.answer()
+
+
+@router.callback_query(F.data.startswith("instruction:"))
+async def send_instruction_video(cb: CallbackQuery):
+    """Отправка видео-инструкции по выбранной платформе."""
+    platform = cb.data.split(":", 1)[1]
+    mapping = {
+        "android": ("📱 Android", GUIDE_ANDROID_VIDEO, GUIDE_ANDROID_URL),
+        "ios": ("🍏 iOS", GUIDE_IOS_VIDEO, GUIDE_IOS_URL),
+        "android_tv": ("📺 Android TV", GUIDE_ANDROID_TV_VIDEO, GUIDE_ANDROID_TV_URL),
+        "pc": ("🖥 ПК", GUIDE_PC_VIDEO, GUIDE_PC_URL),
+    }
+    item = mapping.get(platform)
+    if not item:
+        await cb.answer("Платформа не найдена", show_alert=True)
+        return
+
+    title, video_src, fallback_url = item
+    await cb.answer()
+
+    if video_src:
+        # Можно передать file_id Telegram или прямую ссылку на mp4.
+        await cb.message.answer_video(
+            video=video_src,
+            caption=f"{title} — видео инструкция",
+        )
+    else:
+        await cb.message.answer(
+            f"{title} — видео пока не загружено.\n\nОткройте инструкцию: {fallback_url}"
+        )
+
+
+@router.callback_query(F.data == "support")
+async def show_support(cb: CallbackQuery):
+    """Поддержка — аккуратный блок с username."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+    support_url = f"https://t.me/{SUPPORT_USERNAME.lstrip('@')}"
+    text = (
+        "💬 *Поддержка JetVPN*\n\n"
+        "Если возникли вопросы с подключением или оплатой,\n"
+        "напишите в поддержку:\n"
+        f"{SUPPORT_USERNAME}"
+    )
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✉️ Написать в поддержку", url=support_url)],
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
+        ]
+    )
+    try:
+        await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
+    except Exception:
+        await cb.message.delete()
+        await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+    await cb.answer()
+
+
+@router.callback_query(F.data == "about")
+async def show_about(cb: CallbackQuery):
+    """О нас + 2 обязательные ссылки."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+    text = (
+        "ℹ️ *О нас*\n\n"
+        "JetVPN — сервис для стабильного и удобного подключения.\n"
+        "Мы постоянно улучшаем качество и поддержку пользователей."
+    )
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔒 Политика конфиденциальности", url=PRIVACY_POLICY_URL)],
+            [InlineKeyboardButton(text="📄 Пользовательское соглашение", url=TERMS_URL)],
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
+        ]
+    )
+    try:
+        await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
+    except Exception:
+        await cb.message.delete()
+        await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
     await cb.answer()
 
