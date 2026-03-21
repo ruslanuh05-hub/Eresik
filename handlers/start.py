@@ -138,11 +138,11 @@ async def show_referrals(cb: CallbackQuery):
     bot_username = (await cb.bot.me()).username
     invite_link = f"https://t.me/{bot_username}?start={code}" if bot_username else "Ссылка недоступна"
     text = (
-        "👥 <b>Реферальная система</b>\n\n"
+        f'{tg(E.REFERRAL, "👥")} <b>Реферальная система</b>\n\n'
         "Приглашайте друзей и получайте бонусы.\n\n"
         f"Ваш реферальный код: <code>{escape(code)}</code>\n"
         f"Ваша ссылка: <code>{escape(invite_link)}</code>\n\n"
-        "Отправьте ссылку другу и получите награду после его первой оплаты."
+        "Отправьте ссылку другу – и получите награду после его первой оплаты."
     )
     kb = main_keyboard()
     await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
@@ -155,15 +155,37 @@ async def show_instruction(cb: CallbackQuery):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
     text = (
-        "📖 <b>Инструкция по подключению</b>\n\n"
+        f'{tg(E.INSTRUCTION_BOOKMARK, "🏷️")} <b>Инструкция по подключению</b>\n\n'
         "Выберите платформу, и я отправлю видео-инструкцию:"
     )
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📱 Android", callback_data="instruction:android")],
-            [InlineKeyboardButton(text="🍏 iOS", callback_data="instruction:ios")],
-            [InlineKeyboardButton(text="📺 Android TV", callback_data="instruction:android_tv")],
-            [InlineKeyboardButton(text="🖥 ПК", callback_data="instruction:pc")],
+            [
+                InlineKeyboardButton(
+                    text="Android",
+                    callback_data="instruction:android",
+                    icon_custom_emoji_id=E.ANDROID_ROBOT,
+                ),
+                InlineKeyboardButton(
+                    text="iOS",
+                    callback_data="instruction:ios",
+                    icon_custom_emoji_id=E.IOS_APPLE,
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Android TV",
+                    callback_data="instruction:android_tv",
+                    icon_custom_emoji_id=E.TV,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="ПК",
+                    callback_data="instruction:pc",
+                    icon_custom_emoji_id=E.PC_LAPTOP,
+                )
+            ],
             [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
         ]
     )

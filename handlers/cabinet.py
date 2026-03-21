@@ -18,6 +18,8 @@ from aiogram.filters import Command
 from database import get_or_create_user
 from image_gen import generate_subscription_image
 from config import IMPORT_BRIDGE_BASE, PUBLIC_BASE_URL, UPSTREAM_SUB_URL
+from tgemoji import E, tg
+
 logger = logging.getLogger("jvpn-bot.cabinet")
 router = Router()
 
@@ -38,14 +40,28 @@ async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, pa
 
 
 def device_selection_keyboard() -> InlineKeyboardMarkup:
-    """Шаг 1: выбор устройства (Android | iOS / ПК)."""
+    """Шаг 1: выбор устройства (Android | iOS / ПК), премиум-иконки на кнопках."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="📱 ANDROID", callback_data="subdev:android"),
-                InlineKeyboardButton(text="🍏 iOS", callback_data="subdev:ios"),
+                InlineKeyboardButton(
+                    text="ANDROID",
+                    callback_data="subdev:android",
+                    icon_custom_emoji_id=E.ANDROID_ROBOT,
+                ),
+                InlineKeyboardButton(
+                    text="iOS",
+                    callback_data="subdev:ios",
+                    icon_custom_emoji_id=E.IOS_APPLE,
+                ),
             ],
-            [InlineKeyboardButton(text="🖥 ПК", callback_data="subdev:pc")],
+            [
+                InlineKeyboardButton(
+                    text="ПК",
+                    callback_data="subdev:pc",
+                    icon_custom_emoji_id=E.PC_LAPTOP,
+                )
+            ],
             [InlineKeyboardButton(text="◀️ Назад", callback_data="connect_menu")],
         ]
     )
@@ -119,7 +135,11 @@ def _format_date(ts: int | None) -> str:
 
 
 def _platform_title(platform: str) -> str:
-    return {"android": "📱 Android", "ios": "🍏 iOS", "pc": "🖥 ПК"}.get(platform, platform)
+    return {
+        "android": f'{tg(E.ANDROID_ROBOT, "🤖")} Android',
+        "ios": f'{tg(E.IOS_APPLE, "🍏")} iOS',
+        "pc": f'{tg(E.PC_LAPTOP, "💻")} ПК',
+    }.get(platform, platform)
 
 
 def build_purchase_success_text(plan_title: str, expires_at: int) -> str:
@@ -127,8 +147,8 @@ def build_purchase_success_text(plan_title: str, expires_at: int) -> str:
     return (
         "✅ <b>Подписка активирована!</b>\n\n"
         f"Тариф: {escape(plan_title)}\n\n"
-        f"🗓️ Действует до: {_format_date(expires_at)}\n"
-        f"🕒 Осталось: {_format_expires(expires_at)}\n\n"
+        f'{tg(E.CALENDAR, "🗓️")} Действует до: {_format_date(expires_at)}\n'
+        f'{tg(E.CLOCK, "🕒")} Осталось: {_format_expires(expires_at)}\n\n'
         "Выберите устройство и приложение — импорт откроется по кнопкам ниже."
     )
 
@@ -140,8 +160,8 @@ def build_my_subscriptions_text(
     """Текст экрана «Мои подписки» (без URL)."""
     base = (
         "📱 <b>Мои подписки</b>\n\n"
-        f"🗓️ Действует до: {_format_date(expires_at)}\n"
-        f"🕒 Осталось: {_format_expires(expires_at)}\n\n"
+        f'{tg(E.CALENDAR, "🗓️")} Действует до: {_format_date(expires_at)}\n'
+        f'{tg(E.CLOCK, "🕒")} Осталось: {_format_expires(expires_at)}\n\n'
     )
     if platform is None:
         return base + "Выберите устройство:"
@@ -153,19 +173,19 @@ def build_my_subscriptions_text(
 
 
 async def build_cabinet_text(telegram_id: int) -> str:
+    """Текст профиля с <tg-emoji> — отправлять только как обычное текстовое сообщение, не как caption к фото."""
     user = await get_or_create_user(telegram_id)
     balance = user.get("balance") or 0
     expires_at = user.get("subscription_expires_at")
     nickname = user.get("nickname") or user.get("username") or f"user_{telegram_id}"
     nick_safe = escape(nickname)
 
-    # В подписи к фото нельзя использовать <tg-emoji> — только обычные символы + <b>/<code>.
     text = (
-        "👤 <b>Личный кабинет</b>\n\n"
-        f"👤 Ник: <code>{nick_safe}</code>\n"
-        f"💰 Баланс: <b>{balance:.2f} ₽</b>\n"
-        f"🗓️ Подписка до: {_format_date(expires_at)}\n"
-        f"🕒 Осталось: {_format_expires(expires_at)}\n"
+        f'{tg(E.USER_HEADER, "👤")} <b>Личный кабинет</b>\n\n'
+        f'{tg(E.USER_NICK, "👤")} Ник: <code>{nick_safe}</code>\n'
+        f'{tg(E.MONEY, "💰")} Баланс: <b>{balance:.2f} ₽</b>\n'
+        f'{tg(E.CALENDAR, "🗓️")} Подписка до: {_format_date(expires_at)}\n'
+        f'{tg(E.CLOCK, "🕒")} Осталось: {_format_expires(expires_at)}\n'
     )
 
     return text
@@ -189,16 +209,16 @@ async def cmd_my(msg: Message):
     text = await build_cabinet_text(msg.from_user.id)
 
     kb = cabinet_keyboard()
+    await msg.answer(text, parse_mode="HTML", reply_markup=kb)
     try:
         img_bytes = generate_subscription_image(
             user.get("subscription_expires_at"),
             user.get("nickname") or msg.from_user.username or "",
         )
         photo = BufferedInputFile(img_bytes, filename="cabinet.png")
-        await msg.answer_photo(photo, caption=text, parse_mode="HTML", reply_markup=kb)
+        await msg.answer_photo(photo)
     except Exception:
-        logger.exception("cmd_my: cabinet image failed, text only")
-        await msg.answer(text, parse_mode="HTML", reply_markup=kb)
+        logger.exception("cmd_my: cabinet image failed (text already sent)")
 
 
 @router.callback_query(F.data == "cabinet")
@@ -208,23 +228,20 @@ async def show_cabinet(cb: CallbackQuery):
     user = await get_or_create_user(cb.from_user.id)
     text = await build_cabinet_text(cb.from_user.id)
     kb = cabinet_keyboard()
+    await cb.message.answer(text, parse_mode="HTML", reply_markup=kb)
     try:
         img_bytes = generate_subscription_image(
             user.get("subscription_expires_at"),
             user.get("nickname") or cb.from_user.username or "",
         )
         photo = BufferedInputFile(img_bytes, filename="cabinet.png")
-        await cb.message.answer_photo(photo, caption=text, parse_mode="HTML", reply_markup=kb)
-        try:
-            await cb.message.delete()
-        except Exception as del_err:
-            logger.debug("cabinet: could not delete old message: %s", del_err)
+        await cb.message.answer_photo(photo)
     except Exception:
-        logger.exception("cabinet: image failed, sending text only")
-        try:
-            await cb.message.answer(text, parse_mode="HTML", reply_markup=kb)
-        except Exception:
-            logger.exception("cabinet: text fallback failed")
+        logger.exception("cabinet: image failed after text (profile text already shown)")
+    try:
+        await cb.message.delete()
+    except Exception as del_err:
+        logger.debug("cabinet: could not delete old message: %s", del_err)
 
 
 @router.message(Command("sub"))
