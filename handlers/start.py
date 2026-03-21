@@ -27,7 +27,7 @@ def main_keyboard():
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🚀 Подключиться", callback_data="my_subscriptions")],
+            [InlineKeyboardButton(text="🚀 Подключиться", callback_data="connect_menu")],
             [
                 InlineKeyboardButton(text="👤 Профиль", callback_data="cabinet"),
                 InlineKeyboardButton(text="👥 Рефералы", callback_data="referrals"),
@@ -74,6 +74,38 @@ async def back_to_main(cb: CallbackQuery):
         except Exception:
             await cb.message.delete()
             await cb.message.answer(text, reply_markup=kb)
+    await cb.answer()
+
+
+def connect_keyboard():
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📱 Мои подписки", callback_data="my_subscriptions")],
+            [InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub")],
+            [InlineKeyboardButton(text="💳 Пополнить баланс", callback_data="topup")],
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
+        ]
+    )
+
+
+@router.callback_query(F.data == "connect_menu")
+async def show_connect_menu(cb: CallbackQuery):
+    """Окно 'Подключиться' с быстрыми действиями."""
+    text = (
+        "🚀 *Подключиться*\n\n"
+        "Выберите действие:"
+    )
+    kb = connect_keyboard()
+    try:
+        if cb.message.caption is not None:
+            await cb.message.edit_caption(caption=text, parse_mode="Markdown", reply_markup=kb)
+        else:
+            await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
+    except Exception:
+        await cb.message.delete()
+        await cb.message.answer(text, parse_mode="Markdown", reply_markup=kb)
     await cb.answer()
 
 
