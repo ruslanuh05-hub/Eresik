@@ -1,6 +1,7 @@
 """Веб-сервер для FreeKassa callback и выдачи подписок."""
 import logging
 import time
+import urllib.parse
 from aiohttp import web
 import httpx
 
@@ -137,6 +138,44 @@ async def subscription_handler(request: web.Request) -> web.Response:
             new_lines.insert(0, "")
 
         result = "\n".join(new_lines)
+
+        # Если ссылку открыли в обычном браузере, не показываем сырой vless-список.
+        user_agent = (request.headers.get("User-Agent") or "").lower()
+        is_browser = ("mozilla" in user_agent) and ("happ" not in user_agent) and ("hiddify" not in user_agent) and ("v2raytun" not in user_agent)
+        if is_browser:
+            sub_url = str(request.url)
+            happ_link = f"happ://import/{sub_url}"
+            hiddify_link = f"hiddify://import/{sub_url}#JetVPN"
+            v2raytun_link = f"v2raytun://import/{sub_url}"
+            html = f"""
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JetVPN Подписка</title>
+  <style>
+    body {{ font-family: Arial, sans-serif; background:#0f172a; color:#fff; margin:0; padding:24px; }}
+    .box {{ max-width:620px; margin:0 auto; background:#111827; padding:20px; border-radius:12px; }}
+    a.btn {{ display:block; text-decoration:none; color:#fff; background:#2563eb; padding:12px 14px; border-radius:10px; margin:10px 0; text-align:center; }}
+    code {{ word-break:break-all; display:block; background:#1f2937; padding:10px; border-radius:8px; }}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>JetVPN Подписка</h2>
+    <p>Откройте подписку в приложении:</p>
+    <a class="btn" href="{happ_link}">Открыть в Happ</a>
+    <a class="btn" href="{hiddify_link}">Открыть в Hiddify</a>
+    <a class="btn" href="{v2raytun_link}">Открыть в v2RayTun</a>
+    <p>Если кнопки не сработали, скопируйте URL и вставьте в приложение вручную:</p>
+    <code>{sub_url}</code>
+  </div>
+</body>
+</html>
+            """.strip()
+            return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
+
         return web.Response(
             text=result,
             content_type="text/plain",
