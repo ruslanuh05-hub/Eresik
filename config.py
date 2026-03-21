@@ -9,6 +9,9 @@ load_dotenv()
 # Telegram
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
+PUBLIC_BRAND_NAME = os.getenv("PUBLIC_BRAND_NAME", "JetVpn")
+PUBLIC_TG_URL = os.getenv("PUBLIC_TG_URL", "https://t.me/2helper")
+PUBLIC_SITE_URL = os.getenv("PUBLIC_SITE_URL", "https://sub1.jetstoreapp.ru/v2raytun-sub")
 
 # База данных
 # Render: DATABASE_URL создаётся автоматически при добавлении PostgreSQL

@@ -5,7 +5,13 @@ import urllib.parse
 from aiohttp import web
 import httpx
 
-from config import FREKASSA_CALLBACK_PATH, UPSTREAM_SUB_URL
+from config import (
+    FREKASSA_CALLBACK_PATH,
+    UPSTREAM_SUB_URL,
+    PUBLIC_BRAND_NAME,
+    PUBLIC_TG_URL,
+    PUBLIC_SITE_URL,
+)
 
 logger = logging.getLogger("jvpn-web")
 from database import (
@@ -15,6 +21,7 @@ from database import (
     update_payment_status_by_order_id,
     get_subscription_by_token,
     get_subscription_record_by_token,
+    get_user_by_telegram_id,
 )
 from freekassa import verify_callback
 
@@ -147,23 +154,49 @@ async def subscription_handler(request: web.Request) -> web.Response:
             happ_link = f"happ://import/{sub_url}"
             hiddify_link = f"hiddify://import/{sub_url}#JetVPN"
             v2raytun_link = f"v2raytun://import/{sub_url}"
+            tg_id = sub.get("telegram_id")
+            user = await get_user_by_telegram_id(int(tg_id)) if tg_id is not None else None
+            user_name = "-"
+            if user:
+                user_name = user.get("nickname") or user.get("username") or f"user_{tg_id}"
+            expire_str = time.strftime("%d.%m.%Y %H:%M", time.localtime(expire_unix))
+            remain_sec = max(0, expire_unix - int(time.time()))
+            remain_days = remain_sec // 86400
+            remain_hours = (remain_sec % 86400) // 3600
+            remain_str = f"{remain_days} дн. {remain_hours} ч." if remain_days > 0 else f"{remain_hours} ч."
             html = f"""
 <!doctype html>
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>JetVPN Подписка</title>
+  <title>{PUBLIC_BRAND_NAME} Подписка</title>
   <style>
-    body {{ font-family: Arial, sans-serif; background:#0f172a; color:#fff; margin:0; padding:24px; }}
-    .box {{ max-width:620px; margin:0 auto; background:#111827; padding:20px; border-radius:12px; }}
+    body {{ font-family: Arial, sans-serif; background:#0b1220; color:#fff; margin:0; padding:24px; }}
+    .box {{ max-width:700px; margin:0 auto; background:#111827; padding:20px; border-radius:14px; border:1px solid #1f2937; }}
+    .top {{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }}
+    .brand {{ font-size:26px; font-weight:700; }}
+    .links a {{ color:#93c5fd; text-decoration:none; margin-left:10px; }}
+    .meta {{ background:#0f172a; border:1px solid #1f2937; border-radius:10px; padding:12px; margin:14px 0; }}
+    .meta p {{ margin:6px 0; color:#d1d5db; }}
     a.btn {{ display:block; text-decoration:none; color:#fff; background:#2563eb; padding:12px 14px; border-radius:10px; margin:10px 0; text-align:center; }}
     code {{ word-break:break-all; display:block; background:#1f2937; padding:10px; border-radius:8px; }}
   </style>
 </head>
 <body>
   <div class="box">
-    <h2>JetVPN Подписка</h2>
+    <div class="top">
+      <div class="brand">{PUBLIC_BRAND_NAME}</div>
+      <div class="links">
+        <a href="{PUBLIC_TG_URL}" target="_blank" rel="noopener">Telegram</a>
+        <a href="{PUBLIC_SITE_URL}" target="_blank" rel="noopener">Сайт</a>
+      </div>
+    </div>
+    <div class="meta">
+      <p><b>Пользователь:</b> {user_name}</p>
+      <p><b>Действует до:</b> {expire_str}</p>
+      <p><b>Осталось:</b> {remain_str}</p>
+    </div>
     <p>Откройте подписку в приложении:</p>
     <a class="btn" href="{happ_link}">Открыть в Happ</a>
     <a class="btn" href="{hiddify_link}">Открыть в Hiddify</a>

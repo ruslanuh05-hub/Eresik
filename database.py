@@ -309,6 +309,29 @@ async def get_subscription_record_by_token(token: str) -> Optional[dict]:
             return dict(row) if row else None
 
 
+async def get_user_by_telegram_id(telegram_id: int) -> Optional[dict]:
+    """Получить пользователя по telegram_id без создания новой записи."""
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            row = await conn.fetchrow(
+                f'SELECT * FROM "{USERS_TABLE}" WHERE telegram_id = $1',
+                telegram_id,
+            )
+            return dict(row) if row else None
+        finally:
+            await conn.close()
+    else:
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute(
+                f"SELECT * FROM {USERS_TABLE} WHERE telegram_id = ?",
+                (telegram_id,),
+            )
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
+
 async def create_or_extend_subscription(telegram_id: int, days: int, plan_id: str, cost: float) -> tuple[str, int]:
     """Создать или продлить подписку. Возвращает (token, expires_at)."""
     if USE_POSTGRES:
