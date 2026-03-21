@@ -1,14 +1,12 @@
 """Покупка подписки за баланс."""
 
-import time
-
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.filters import Command
 
 from database import get_or_create_user, get_plans, create_or_extend_subscription
 from config import PUBLIC_BASE_URL, UPSTREAM_SUB_URL
-from handlers.cabinet import subscription_keyboard
+from handlers.cabinet import build_purchase_success_text, device_selection_keyboard
 
 router = Router()
 
@@ -113,41 +111,12 @@ async def buy_plan(cb: CallbackQuery):
         else f"{UPSTREAM_SUB_URL}?token={token}"
     )
 
-    expires_str = time.strftime("%d.%m.%Y %H:%M", time.localtime(expires_at))
-    hiddify_link = f"hiddify://import/{personal_sub_url}#JetVPN"
-    v2raytun_link = f"v2raytun://import/{personal_sub_url}"
-    happ_link = f"happ://import/{personal_sub_url}"
-    success_text = (
-        f"✅ *Подписка активирована!*\n\n"
-        f"Тариф: {plan['title']}\n"
-        f"Действует до: {expires_str}\n\n"
-        f"🔗 Ссылка подписки:\n`{personal_sub_url}`\n\n"
-        f"Нажмите кнопку ниже, чтобы открыть в приложении:"
+    success_text = build_purchase_success_text(plan["title"], personal_sub_url, expires_at)
+    await _safe_edit_message(
+        cb.message,
+        success_text,
+        reply_markup=device_selection_keyboard(),
+        parse_mode="Markdown",
     )
-    try:
-        await _safe_edit_message(
-            cb.message,
-            success_text,
-            reply_markup=subscription_keyboard(personal_sub_url),
-            parse_mode="Markdown",
-        )
-    except Exception:
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-        fallback_text = (
-            f"{success_text}\n\n"
-            "Если кнопки не открываются, скопируйте ссылку для приложения:\n"
-            f"`{hiddify_link}`\n"
-            f"`{v2raytun_link}`\n"
-            f"`{happ_link}`"
-        )
-        await _safe_edit_message(
-            cb.message,
-            fallback_text,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[[InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")]]
-            ),
-            parse_mode="Markdown",
-        )
     await cb.answer("Подписка оформлена!")
 

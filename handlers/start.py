@@ -7,8 +7,6 @@ from database import get_or_create_user
 from config import (
     WELCOME_IMAGE,
     SUPPORT_USERNAME,
-    PRIVACY_POLICY_URL,
-    TERMS_URL,
     GUIDE_ANDROID_URL,
     GUIDE_IOS_URL,
     GUIDE_ANDROID_TV_URL,
@@ -30,11 +28,11 @@ async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, pa
         else:
             await cb.message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
     except Exception:
+        await cb.message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
         try:
             await cb.message.delete()
         except Exception:
             pass
-        await cb.message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
 
 
 def main_keyboard():
@@ -219,7 +217,7 @@ async def show_support(cb: CallbackQuery):
 
 @router.callback_query(F.data == "about")
 async def show_about(cb: CallbackQuery):
-    """О нас + 2 обязательные ссылки."""
+    """О нас + кнопки с текстом политики и соглашения в чате."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
     text = (
@@ -229,11 +227,27 @@ async def show_about(cb: CallbackQuery):
     )
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🔒 Политика конфиденциальности", url=PRIVACY_POLICY_URL)],
-            [InlineKeyboardButton(text="📄 Пользовательское соглашение", url=TERMS_URL)],
+            [InlineKeyboardButton(text="🔒 Политика конфиденциальности", callback_data="about:privacy")],
+            [InlineKeyboardButton(text="📄 Пользовательское соглашение", callback_data="about:terms")],
             [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
         ]
     )
     await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="Markdown")
+    await cb.answer()
+
+
+@router.callback_query(F.data == "about:privacy")
+async def send_privacy_policy(cb: CallbackQuery):
+    from legal_texts import privacy_policy_text
+
+    await cb.message.answer(privacy_policy_text(), parse_mode="Markdown")
+    await cb.answer()
+
+
+@router.callback_query(F.data == "about:terms")
+async def send_terms_of_use(cb: CallbackQuery):
+    from legal_texts import terms_of_use_text
+
+    await cb.message.answer(terms_of_use_text(), parse_mode="Markdown")
     await cb.answer()
 

@@ -1,13 +1,16 @@
 """Веб-сервер для FreeKassa callback и выдачи подписок."""
+import json
 import logging
 import time
 import urllib.parse
+from html import escape
 from aiohttp import web
 import httpx
 
 from config import (
     FREKASSA_CALLBACK_PATH,
     UPSTREAM_SUB_URL,
+    PUBLIC_BASE_URL,
     PUBLIC_BRAND_NAME,
     PUBLIC_TG_URL,
     PUBLIC_SITE_URL,
@@ -250,10 +253,85 @@ def create_app(bot=None) -> web.Application:
     app.router.add_get("/health", lambda r: web.json_response({"ok": True}))
     app.router.add_post(FREKASSA_CALLBACK_PATH, freekassa_callback)
     app.router.add_get("/sub/{token}.txt", subscription_handler)
+    app.router.add_get("/open/{app}", open_import_handler)
     app.router.add_get("/debug/sub/{token}.txt", debug_subscription_handler)
     # Debug без суффикса .txt (на случай, если клиент открывает другой формат)
     app.router.add_get("/debug/sub/{token}", debug_subscription_handler)
     return app
+
+
+def _validate_subscription_url(u: str) -> bool:
+    """Разрешить только «наши» HTTPS-ссылки подписки (защита от open-redirect)."""
+    u = (u or "").strip()
+    if not u.startswith("https://"):
+        return False
+    base = PUBLIC_BASE_URL.rstrip("/") if PUBLIC_BASE_URL else ""
+    if base and u.startswith(base + "/"):
+        return True
+    if UPSTREAM_SUB_URL:
+        up_root = UPSTREAM_SUB_URL.split("?")[0].rstrip("/")
+        if up_root and u.startswith(up_root):
+            return True
+    return False
+
+
+def _deep_link_for_app(app: str, sub_url: str) -> str:
+    if app == "v2raytun":
+        return f"v2raytun://import/{sub_url}"
+    if app == "happ":
+        return f"happ://import/{sub_url}"
+    if app == "hiddify":
+        return f"hiddify://import/{sub_url}#JetVPN"
+    raise ValueError(app)
+
+
+async def open_import_handler(request: web.Request) -> web.Response:
+    """
+    HTTPS-страница для кнопок Telegram: открывает браузер и перенаправляет в приложение.
+    GET /open/{v2raytun|happ|hiddify}?u=<urlencoded https subscription>
+    """
+    app = request.match_info.get("app", "")
+    if app not in {"v2raytun", "happ", "hiddify"}:
+        return web.Response(status=404, text="Not found")
+
+    u = request.query.get("u", "").strip()
+    if not _validate_subscription_url(u):
+        return web.Response(status=400, text="Invalid subscription URL")
+
+    try:
+        deep = _deep_link_for_app(app, u)
+    except ValueError:
+        return web.Response(status=404, text="Not found")
+
+    deep_json = json.dumps(deep, ensure_ascii=False)
+    html = f"""<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{escape(PUBLIC_BRAND_NAME)} — импорт</title>
+  <style>
+    body {{ font-family: system-ui, sans-serif; background:#0b1220; color:#e5e7eb; margin:0; padding:24px; }}
+    .box {{ max-width:520px; margin:40px auto; background:#111827; padding:20px; border-radius:14px; border:1px solid #1f2937; }}
+    a {{ color:#93c5fd; word-break:break-all; }}
+  </style>
+  <script>
+    (function() {{
+      var deep = {deep_json};
+      try {{ window.location.replace(deep); }} catch (e) {{}}
+      setTimeout(function() {{ window.location.href = deep; }}, 300);
+    }})();
+  </script>
+</head>
+<body>
+  <div class="box">
+    <p>Открываем приложение…</p>
+    <p>Если не открылось автоматически, нажмите:</p>
+    <p><a href="{escape(deep, quote=True)}">Импортировать подписку</a></p>
+  </div>
+</body>
+</html>"""
+    return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
 
 async def debug_subscription_handler(request: web.Request) -> web.Response:

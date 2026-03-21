@@ -12,6 +12,8 @@ ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.
 PUBLIC_BRAND_NAME = os.getenv("PUBLIC_BRAND_NAME", "JetVpn")
 PUBLIC_TG_URL = os.getenv("PUBLIC_TG_URL", "https://t.me/2helper")
 PUBLIC_SITE_URL = os.getenv("PUBLIC_SITE_URL", "https://sub1.jetstoreapp.ru/v2raytun-sub")
+# Отображаемое имя бота в юридических текстах (как в Telegram)
+PUBLIC_BOT_DISPLAY = os.getenv("PUBLIC_BOT_DISPLAY", "@jetvpnpro_bot")
 SUPPORT_USERNAME = os.getenv("SUPPORT_USERNAME", "@JetStoreHelper")
 PRIVACY_POLICY_URL = os.getenv("PRIVACY_POLICY_URL", "https://example.com/privacy")
 TERMS_URL = os.getenv("TERMS_URL", "https://example.com/terms")
@@ -42,6 +44,8 @@ FREKASSA_SECRET_2 = os.getenv("FREKASSA_SECRET_2", "")
 
 # URL для callback FreeKassa (должен быть публичный, например https://yourdomain.com)
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+# База для HTTPS-страниц импорта (/open/...) в Telegram-кнопках
+IMPORT_BRIDGE_BASE = os.getenv("IMPORT_BRIDGE_BASE", "").strip().rstrip("/") or PUBLIC_BASE_URL
 FREKASSA_CALLBACK_PATH = "/pay/freekassa/callback"
 
 # Webhook:
