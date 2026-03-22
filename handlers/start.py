@@ -11,7 +11,6 @@ from aiogram.types import (
     Message,
     CallbackQuery,
     FSInputFile,
-    BufferedInputFile,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
 )
@@ -87,13 +86,19 @@ def _welcome_text() -> str:
 
 
 async def _send_welcome(msg: Message) -> None:
-    """Приветствие без inline; reply-клавиатура снизу. Текст отдельно от фото — иначе <tg-emoji> в caption не премиум."""
+    """Приветствие без inline; reply-клавиатура. Фото и текст — одно сообщение (caption), если есть WELCOME_IMAGE."""
     text = _welcome_text()
     rkb = reply_main_keyboard()
-    await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=rkb)
     if WELCOME_IMAGE.exists():
         photo = FSInputFile(WELCOME_IMAGE)
-        await msg.answer_photo(photo)
+        await msg.answer_photo(
+            photo,
+            caption=text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=rkb,
+        )
+    else:
+        await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=rkb)
 
 
 @router.message(CommandStart())
@@ -119,13 +124,23 @@ async def back_to_main(cb: CallbackQuery, state: FSMContext):
     except Exception:
         logger.debug("back_to_main: delete old message skipped")
     try:
-        await cb.bot.send_message(uid, text, parse_mode=ParseMode.HTML, reply_markup=rkb)
         if WELCOME_IMAGE.exists():
             photo = FSInputFile(WELCOME_IMAGE)
-            await cb.bot.send_photo(uid, photo)
+            await cb.bot.send_photo(
+                uid,
+                photo,
+                caption=text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=rkb,
+            )
+        else:
+            await cb.bot.send_message(uid, text, parse_mode=ParseMode.HTML, reply_markup=rkb)
     except Exception:
         logger.exception("back_to_main: send welcome")
-        await cb.bot.send_message(uid, text, parse_mode=ParseMode.HTML, reply_markup=rkb)
+        try:
+            await cb.bot.send_message(uid, text, parse_mode=ParseMode.HTML, reply_markup=rkb)
+        except Exception:
+            pass
 
 
 @router.message(F.text == ReplyMenu.SUBSCRIPTION, StateFilter(default_state))
@@ -172,21 +187,25 @@ async def menu_reply_about(msg: Message):
 async def menu_reply_profile(msg: Message):
     user = await get_or_create_user(msg.from_user.id)
     kb = cabinet_keyboard()
-    try:
-        await _deliver_cabinet(msg.bot, msg.chat.id, msg.from_user.id, reply_markup=kb)
-    except Exception:
-        logger.exception("menu_reply_profile: deliver")
-        await msg.answer("Не удалось открыть профиль. Попробуйте /my")
-        return
+    img_bytes: bytes | None = None
     try:
         img_bytes = generate_subscription_image(
             user.get("subscription_expires_at"),
             user.get("nickname") or msg.from_user.username or "",
         )
-        photo = BufferedInputFile(img_bytes, filename="cabinet.png")
-        await msg.bot.send_photo(msg.chat.id, photo)
     except Exception:
-        logger.exception("menu_reply_profile: image")
+        logger.exception("menu_reply_profile: image generation")
+    try:
+        await _deliver_cabinet(
+            msg.bot,
+            msg.chat.id,
+            msg.from_user.id,
+            reply_markup=kb,
+            photo_bytes=img_bytes,
+        )
+    except Exception:
+        logger.exception("menu_reply_profile: deliver")
+        await msg.answer("Не удалось открыть профиль. Попробуйте /my")
 
 
 @router.message(F.text == ReplyMenu.HELP, StateFilter(default_state))

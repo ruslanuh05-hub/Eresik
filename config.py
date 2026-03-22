@@ -8,6 +8,8 @@ load_dotenv()
 
 # Telegram
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+# Профиль с <tg-emoji>: только если ID из tgemoji доступны этому боту (иначе DOCUMENT_INVALID).
+CABINET_PREMIUM_EMOJI = os.getenv("CABINET_PREMIUM_EMOJI", "").lower() in ("1", "true", "yes")
 ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
 PUBLIC_BRAND_NAME = os.getenv("PUBLIC_BRAND_NAME", "JetVpn")
 PUBLIC_TG_URL = os.getenv("PUBLIC_TG_URL", "https://t.me/2helper")

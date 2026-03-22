@@ -18,7 +18,12 @@ from aiogram.filters import Command
 
 from database import get_or_create_user
 from image_gen import generate_subscription_image
-from config import IMPORT_BRIDGE_BASE, PUBLIC_BASE_URL, UPSTREAM_SUB_URL
+from config import (
+    CABINET_PREMIUM_EMOJI,
+    IMPORT_BRIDGE_BASE,
+    PUBLIC_BASE_URL,
+    UPSTREAM_SUB_URL,
+)
 from tgemoji import E, tg
 
 logger = logging.getLogger("jvpn-bot.cabinet")
@@ -224,27 +229,68 @@ async def build_cabinet_text(telegram_id: int, *, rich_emoji: bool = True) -> st
     return _cabinet_html(user, telegram_id, rich_emoji=rich_emoji)
 
 
+def _telegram_error_soft_fail(msg: str) -> bool:
+    """Ошибки, после которых имеет смысл тихо перейти на запасной вариант текста."""
+    m = msg.lower()
+    return any(
+        x in m
+        for x in (
+            "document_invalid",
+            "can't parse",
+            "cannot parse",
+            "parse entities",
+            "entity",
+        )
+    )
+
+
 async def _deliver_cabinet(
     bot,
     chat_id: int,
     telegram_user_id: int,
     *,
     reply_markup,
+    photo_bytes: bytes | None = None,
 ) -> None:
     """
-    Отправить профиль в чат. Используем bot.send_message (надёжно при InaccessibleMessage).
-    Несколько попыток: HTML+tg-emoji → HTML без tg-emoji → простой текст.
+    Отправить профиль в чат (надёжно при InaccessibleMessage).
+
+    Если передан photo_bytes — одно сообщение «фото + подпись» с клавиатурой.
+    Иначе только текст.
+
+    По умолчанию без <tg-emoji> в тексте: см. CABINET_PREMIUM_EMOJI в config.
     """
     user = await get_or_create_user(telegram_user_id)
-    attempts: list[tuple[str, str | None]] = [
-        (_cabinet_html(user, telegram_user_id, rich_emoji=True), "HTML"),
-        (_cabinet_html(user, telegram_user_id, rich_emoji=False), "HTML"),
-        (_cabinet_plaintext(user, telegram_user_id), None),
-    ]
+    attempts: list[tuple[str, str | None]] = []
+    if CABINET_PREMIUM_EMOJI:
+        attempts.append((_cabinet_html(user, telegram_user_id, rich_emoji=True), "HTML"))
+    attempts.extend(
+        [
+            (_cabinet_html(user, telegram_user_id, rich_emoji=False), "HTML"),
+            (_cabinet_plaintext(user, telegram_user_id), None),
+        ]
+    )
     last_err: TelegramBadRequest | None = None
-    for text, parse_mode in attempts:
+    for i, (text, parse_mode) in enumerate(attempts):
         try:
-            if parse_mode:
+            if photo_bytes is not None:
+                photo = BufferedInputFile(photo_bytes, filename="cabinet.png")
+                if parse_mode:
+                    await bot.send_photo(
+                        chat_id,
+                        photo,
+                        caption=text,
+                        parse_mode=parse_mode,
+                        reply_markup=reply_markup,
+                    )
+                else:
+                    await bot.send_photo(
+                        chat_id,
+                        photo,
+                        caption=text,
+                        reply_markup=reply_markup,
+                    )
+            elif parse_mode:
                 await bot.send_message(
                     chat_id,
                     text,
@@ -256,11 +302,24 @@ async def _deliver_cabinet(
             return
         except TelegramBadRequest as e:
             last_err = e
-            logger.warning(
-                "cabinet: send_message failed (parse_mode=%r): %s",
-                parse_mode,
-                e,
-            )
+            err_s = str(e)
+            is_last = i == len(attempts) - 1
+            soft = _telegram_error_soft_fail(err_s)
+            action = "send_photo" if photo_bytes is not None else "send_message"
+            if soft and not is_last:
+                logger.debug(
+                    "cabinet: %s fallback next (parse_mode=%r): %s",
+                    action,
+                    parse_mode,
+                    e,
+                )
+            else:
+                logger.warning(
+                    "cabinet: %s failed (parse_mode=%r): %s",
+                    action,
+                    parse_mode,
+                    e,
+                )
     if last_err:
         raise last_err
 
@@ -282,23 +341,27 @@ async def cmd_my(msg: Message):
     user = await get_or_create_user(msg.from_user.id)
 
     kb = cabinet_keyboard()
-    try:
-        await _deliver_cabinet(msg.bot, msg.chat.id, msg.from_user.id, reply_markup=kb)
-    except Exception:
-        logger.exception("cmd_my: _deliver_cabinet failed")
-        await msg.answer(
-            "Не удалось открыть профиль. Попробуйте позже или обратитесь в поддержку.",
-        )
-        return
+    img_bytes: bytes | None = None
     try:
         img_bytes = generate_subscription_image(
             user.get("subscription_expires_at"),
             user.get("nickname") or msg.from_user.username or "",
         )
-        photo = BufferedInputFile(img_bytes, filename="cabinet.png")
-        await msg.bot.send_photo(msg.chat.id, photo)
     except Exception:
-        logger.exception("cmd_my: cabinet image failed (text already sent)")
+        logger.exception("cmd_my: cabinet image generation failed")
+    try:
+        await _deliver_cabinet(
+            msg.bot,
+            msg.chat.id,
+            msg.from_user.id,
+            reply_markup=kb,
+            photo_bytes=img_bytes,
+        )
+    except Exception:
+        logger.exception("cmd_my: _deliver_cabinet failed")
+        await msg.answer(
+            "Не удалось открыть профиль. Попробуйте позже или обратитесь в поддержку.",
+        )
 
 
 @router.callback_query(F.data == "cabinet")
@@ -308,8 +371,22 @@ async def show_cabinet(cb: CallbackQuery):
     uid = cb.from_user.id
     user = await get_or_create_user(uid)
     kb = cabinet_keyboard()
+    img_bytes: bytes | None = None
     try:
-        await _deliver_cabinet(cb.bot, uid, uid, reply_markup=kb)
+        img_bytes = generate_subscription_image(
+            user.get("subscription_expires_at"),
+            user.get("nickname") or cb.from_user.username or "",
+        )
+    except Exception:
+        logger.exception("show_cabinet: image generation failed")
+    try:
+        await _deliver_cabinet(
+            cb.bot,
+            uid,
+            uid,
+            reply_markup=kb,
+            photo_bytes=img_bytes,
+        )
     except Exception:
         logger.exception("show_cabinet: _deliver_cabinet failed")
         try:
@@ -320,15 +397,6 @@ async def show_cabinet(cb: CallbackQuery):
         except Exception:
             pass
         return
-    try:
-        img_bytes = generate_subscription_image(
-            user.get("subscription_expires_at"),
-            user.get("nickname") or cb.from_user.username or "",
-        )
-        photo = BufferedInputFile(img_bytes, filename="cabinet.png")
-        await cb.bot.send_photo(uid, photo)
-    except Exception:
-        logger.exception("cabinet: image failed after text (profile text already shown)")
     if isinstance(cb.message, Message):
         try:
             await cb.message.delete()
