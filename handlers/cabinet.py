@@ -25,6 +25,7 @@ from config import (
     UPSTREAM_SUB_URL,
 )
 from tgemoji import E, tg
+from handlers.keyboards_common import back_btn, row_back_main
 
 logger = logging.getLogger("jvpn-bot.cabinet")
 router = Router()
@@ -68,7 +69,7 @@ def device_selection_keyboard() -> InlineKeyboardMarkup:
                     icon_custom_emoji_id=E.PC_LAPTOP,
                 )
             ],
-            [InlineKeyboardButton(text="◀️ Назад", callback_data="connect_menu")],
+            row_back_main(),
         ]
     )
 
@@ -86,8 +87,8 @@ def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardM
     if not IMPORT_BRIDGE_BASE or not personal_sub_url:
         return InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="◀️ К выбору устройства", callback_data="subdev:menu")],
-                [InlineKeyboardButton(text="◀️ В главное меню", callback_data="main_menu")],
+                [back_btn(callback_data="subdev:menu", text="К устройствам")],
+                row_back_main(),
             ]
         )
 
@@ -106,8 +107,8 @@ def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardM
                 InlineKeyboardButton(text="📱 Happ", url=_bridge_url("happ", personal_sub_url)),
             ]
         )
-    rows.append([InlineKeyboardButton(text="◀️ К выбору устройства", callback_data="subdev:menu")])
-    rows.append([InlineKeyboardButton(text="◀️ В главное меню", callback_data="main_menu")])
+    rows.append([back_btn(callback_data="subdev:menu", text="К устройствам")])
+    rows.append(row_back_main())
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -115,8 +116,14 @@ def cabinet_keyboard() -> InlineKeyboardMarkup:
     """Профиль: подключение через «Мои подписки», без отображения URL."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🚀 Подключиться", callback_data="my_subscriptions")],
-            [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")],
+            [
+                InlineKeyboardButton(
+                    text="Подключиться",
+                    callback_data="my_subscriptions",
+                    icon_custom_emoji_id=E.MOLNY,
+                ),
+            ],
+            row_back_main(),
         ]
     )
 
@@ -424,8 +431,14 @@ async def cmd_sub(msg: Message):
         )
         kb = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub:subs")],
-                [InlineKeyboardButton(text="◀️ Назад", callback_data="connect_menu")],
+                [
+                    InlineKeyboardButton(
+                        text="Купить подписку",
+                        callback_data="buy_sub:subs",
+                        icon_custom_emoji_id=E.INSTRUCTION_BOOKMARK,
+                    ),
+                ],
+                row_back_main(),
             ]
         )
 
@@ -452,8 +465,14 @@ async def show_my_subscriptions(cb: CallbackQuery):
         )
         kb = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub:subs")],
-                [InlineKeyboardButton(text="◀️ Назад", callback_data="connect_menu")],
+                [
+                    InlineKeyboardButton(
+                        text="Купить подписку",
+                        callback_data="buy_sub:subs",
+                        icon_custom_emoji_id=E.INSTRUCTION_BOOKMARK,
+                    ),
+                ],
+                row_back_main(),
             ]
         )
 

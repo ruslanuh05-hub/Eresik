@@ -1,8 +1,7 @@
 """ID кастомных эмодзи Telegram (Fragment / Premium) и разметка <tg-emoji>."""
 
-# ReplyKeyboard: премиум — через KeyboardButton(icon_custom_emoji_id=E.…), см. reply_menu.py.
-# Не копируйте премиум-символ в поле text — в text только обычная подпись кнопки.
-# В сообщениях HTML используйте tg(E.…, "…").
+# Премиум на inline/reply-кнопках: icon_custom_emoji_id=E.…
+# В сообщениях HTML: tg(E.…, "…") + parse_mode=HTML.
 
 
 class E:
@@ -21,6 +20,7 @@ class E:
     FORME = "5775869215047160245"  # «форма» / о нас
     PROF = "5784911985221048409"  # профиль
     HELP = "5911274703367968100"  # поддержка
+    BACKARROW = "5983279327574233274"
 
     # Рефералы / инструкция / платформы
     REFERRAL = "5931347928810526429"  # 👥

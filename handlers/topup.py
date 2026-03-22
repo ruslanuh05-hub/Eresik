@@ -3,13 +3,14 @@
 import time
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from database import get_or_create_user, add_payment, add_balance
 from freekassa import create_payment_url
 from config import FREKASSA_SHOP_ID, PUBLIC_BASE_URL, ADMIN_IDS
+from handlers.keyboards_common import back_btn, row_back_main
 
 router = Router()
 
@@ -55,7 +56,7 @@ def topup_keyboard(is_admin: bool = False):
     if is_admin:
         rows.append([InlineKeyboardButton(text="🧪 Тестовая оплата 100 ₽", callback_data="topup:test:100")])
 
-    rows.append([InlineKeyboardButton(text="◀️ В главное меню", callback_data="main_menu")])
+    rows.append(row_back_main())
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -89,7 +90,7 @@ async def topup_amount(cb: CallbackQuery, state: FSMContext):
         await _safe_edit_message(
             cb.message,
             "✏️ Введите сумму пополнения (минимум 50 ₽):",
-            reply_markup=None,
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[row_back_main()]),
             parse_mode="HTML",
         )
         await cb.answer()
@@ -177,7 +178,7 @@ async def process_topup(cb: CallbackQuery, telegram_id: int, amount: float):
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🔗 Перейти к оплате", url=url)],
-            [InlineKeyboardButton(text="◀️ Назад", callback_data="topup")],
+            [back_btn(callback_data="topup", text="Назад")],
         ]
     )
     await _safe_edit_message(
@@ -209,7 +210,7 @@ async def do_send_payment_link(msg: Message, telegram_id: int, amount: float):
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🔗 Перейти к оплате", url=url)],
-            [InlineKeyboardButton(text="◀️ Назад", callback_data="topup")],
+            [back_btn(callback_data="topup", text="Назад")],
         ]
     )
     await msg.answer(

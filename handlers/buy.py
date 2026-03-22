@@ -8,6 +8,7 @@ from aiogram.filters import Command
 
 from database import get_or_create_user, get_plans, create_or_extend_subscription
 from handlers.cabinet import build_purchase_success_text, device_selection_keyboard
+from handlers.keyboards_common import row_back_main
 
 router = Router()
 
@@ -31,8 +32,8 @@ async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mo
             pass
 
 
-async def plans_keyboard(back_callback: str = "connect_menu"):
-    """Назад — в подменю «Подключиться» (или переданный callback)."""
+async def plans_keyboard():
+    """Тарифы + «Назад» в главное меню (премиум-стрелка)."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
     plans = await get_plans()
@@ -45,7 +46,7 @@ async def plans_keyboard(back_callback: str = "connect_menu"):
         ]
         for p in plans
     ]
-    rows.append([InlineKeyboardButton(text="◀️ Назад", callback_data=back_callback)])
+    rows.append(row_back_main())
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -54,8 +55,6 @@ async def buy_sub_start(cb: CallbackQuery):
     user = await get_or_create_user(cb.from_user.id)
     balance = user.get("balance") or 0
     plans = await get_plans()
-    # Из «Мои подписки» (нет активной подписки) — назад туда; из «Подключиться» — в connect_menu
-    back_cb = "my_subscriptions" if cb.data == "buy_sub:subs" else "connect_menu"
     text = (
         "📦 <b>Купить подписку</b>\n\n"
         f"Ваш баланс: <b>{balance:.2f} ₽</b>\n\n"
@@ -66,7 +65,7 @@ async def buy_sub_start(cb: CallbackQuery):
     await _safe_edit_message(
         cb.message,
         text,
-        reply_markup=await plans_keyboard(back_callback=back_cb),
+        reply_markup=await plans_keyboard(),
         parse_mode="HTML",
     )
     await cb.answer()
