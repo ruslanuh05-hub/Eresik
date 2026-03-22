@@ -67,25 +67,33 @@ def connect_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [InlineKeyboardButton(text="📱 Мои подписки", callback_data="my_subscriptions")],
             [InlineKeyboardButton(text="📦 Купить подписку", callback_data="buy_sub")],
-            [InlineKeyboardButton(text="👥 Рефералы", callback_data="referrals")],
+            [
+                InlineKeyboardButton(
+                    text="Рефералы",
+                    callback_data="referrals",
+                    icon_custom_emoji_id=E.REFERRAL,
+                ),
+            ],
             [InlineKeyboardButton(text="📖 Инструкция", callback_data="instruction")],
         ]
     )
 
 
 def _welcome_text() -> str:
-    return f'{tg(E.HEART, "❤️")} <b>Добро пожаловать в JetVPN!</b>'
+    return (
+        f'{tg(E.HEART, "💜")} <b>Добро пожаловать в JetVPN!</b>\n\n'
+        f'Выберите нужное действие в меню ниже {tg(E.ARROW_DOWN, "⬇️")}'
+    )
 
 
 async def _send_welcome(msg: Message) -> None:
-    """Приветствие без inline-кнопок; действия — только reply-клавиатура снизу."""
+    """Приветствие без inline; reply-клавиатура снизу. Текст отдельно от фото — иначе <tg-emoji> в caption не премиум."""
     text = _welcome_text()
     rkb = reply_main_keyboard()
+    await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=rkb)
     if WELCOME_IMAGE.exists():
         photo = FSInputFile(WELCOME_IMAGE)
-        await msg.answer_photo(photo, caption=text, parse_mode=ParseMode.HTML, reply_markup=rkb)
-    else:
-        await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=rkb)
+        await msg.answer_photo(photo)
 
 
 @router.message(CommandStart())
@@ -111,11 +119,10 @@ async def back_to_main(cb: CallbackQuery, state: FSMContext):
     except Exception:
         logger.debug("back_to_main: delete old message skipped")
     try:
+        await cb.bot.send_message(uid, text, parse_mode=ParseMode.HTML, reply_markup=rkb)
         if WELCOME_IMAGE.exists():
             photo = FSInputFile(WELCOME_IMAGE)
-            await cb.bot.send_photo(uid, photo, caption=text, parse_mode=ParseMode.HTML, reply_markup=rkb)
-        else:
-            await cb.bot.send_message(uid, text, parse_mode=ParseMode.HTML, reply_markup=rkb)
+            await cb.bot.send_photo(uid, photo)
     except Exception:
         logger.exception("back_to_main: send welcome")
         await cb.bot.send_message(uid, text, parse_mode=ParseMode.HTML, reply_markup=rkb)
@@ -182,7 +189,7 @@ async def menu_reply_profile(msg: Message):
         logger.exception("menu_reply_profile: image")
 
 
-@router.message(F.text == ReplyMenu.SUPPORT, StateFilter(default_state))
+@router.message(F.text == ReplyMenu.HELP, StateFilter(default_state))
 async def menu_reply_support(msg: Message):
     support_url = f"https://t.me/{SUPPORT_USERNAME.lstrip('@')}"
     text = (
