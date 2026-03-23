@@ -57,10 +57,6 @@ async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, pa
             await cb.message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
     except Exception:
         await cb.message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
-        try:
-            await cb.message.delete()
-        except Exception:
-            pass
 
 
 def main_menu_inline() -> InlineKeyboardMarkup:
@@ -166,32 +162,19 @@ async def back_to_main(cb: CallbackQuery, state: FSMContext):
     kb = main_menu_inline()
     uid = cb.from_user.id
     try:
-        if cb.message:
-            try:
-                await cb.message.delete()
-            except Exception:
-                pass
-    except Exception:
-        logger.debug("back_to_main: delete old message skipped")
-    await _strip_reply_keyboard(cb.bot, uid)
-    try:
-        if WELCOME_IMAGE.exists():
-            photo = FSInputFile(WELCOME_IMAGE)
-            await cb.bot.send_photo(
-                uid,
-                photo,
+        if cb.message and cb.message.caption is not None:
+            await cb.message.edit_caption(
                 caption=text,
                 parse_mode=ParseMode.HTML,
                 reply_markup=kb,
             )
         else:
-            await cb.bot.send_message(uid, text, parse_mode=ParseMode.HTML, reply_markup=kb)
+            await cb.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb)
     except Exception:
-        logger.exception("back_to_main: send welcome")
         try:
             await cb.bot.send_message(uid, text, parse_mode=ParseMode.HTML, reply_markup=kb)
         except Exception:
-            pass
+            logger.exception("back_to_main: send welcome fallback failed")
 
 
 @router.callback_query(F.data == "connect_menu")
@@ -204,7 +187,6 @@ async def show_connect_menu(cb: CallbackQuery):
         else:
             await cb.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb)
     except Exception:
-        await cb.message.delete()
         await cb.message.answer(text, parse_mode=ParseMode.HTML, reply_markup=kb)
     await cb.answer()
 

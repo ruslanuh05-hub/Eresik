@@ -8,7 +8,7 @@ from aiogram.filters import Command
 
 from database import get_or_create_user, get_plans, create_or_extend_subscription
 from handlers.cabinet import build_purchase_success_text, device_selection_keyboard
-from handlers.keyboards_common import row_back_main
+from handlers.keyboards_common import back_btn
 
 router = Router()
 
@@ -16,7 +16,7 @@ router = Router()
 async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mode: str = "HTML") -> None:
     """
     Telegram: для сообщений с фото нужно редактировать caption, а не text.
-    Делаем безопасный вариант с fallback на delete+answer.
+    Делаем безопасный вариант с fallback на answer.
     """
     try:
         if message.caption is not None:
@@ -24,16 +24,11 @@ async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mo
         else:
             await message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
     except Exception:
-        # Сначала отправляем новый экран, потом удаляем старый.
         await message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
-        try:
-            await message.delete()
-        except Exception:
-            pass
 
 
-async def plans_keyboard():
-    """Тарифы + «Назад» в главное меню (премиум-стрелка)."""
+async def plans_keyboard(back_callback: str = "connect_menu"):
+    """Тарифы + «Назад» с настраиваемым callback."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
     plans = await get_plans()
@@ -46,7 +41,7 @@ async def plans_keyboard():
         ]
         for p in plans
     ]
-    rows.append(row_back_main())
+    rows.append([back_btn(callback_data=back_callback, text="Назад")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -62,10 +57,11 @@ async def buy_sub_start(cb: CallbackQuery):
     )
     for p in plans:
         text += f"\n• {escape(p['title'])} — {p['price']} ₽"
+    back_callback = "my_subscriptions" if cb.data == "buy_sub:subs" else "connect_menu"
     await _safe_edit_message(
         cb.message,
         text,
-        reply_markup=await plans_keyboard(),
+        reply_markup=await plans_keyboard(back_callback=back_callback),
         parse_mode="HTML",
     )
     await cb.answer()

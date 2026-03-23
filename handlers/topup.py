@@ -22,7 +22,7 @@ class TopUpStates(StatesGroup):
 async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mode: str = "HTML") -> None:
     """
     Для сообщений с фото редактируем caption, иначе text.
-    Если редактирование не удалось — удаляем и отправляем новое сообщение.
+    Если редактирование не удалось — отправляем новое сообщение.
     """
     try:
         if message.caption is not None:
@@ -30,10 +30,6 @@ async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mo
         else:
             await message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
     except Exception:
-        try:
-            await message.delete()
-        except Exception:
-            pass
         await message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
 
 
@@ -56,7 +52,7 @@ def topup_keyboard(is_admin: bool = False):
     if is_admin:
         rows.append([InlineKeyboardButton(text="🧪 Тестовая оплата 100 ₽", callback_data="topup:test:100")])
 
-    rows.append(row_back_main())
+    rows.append([back_btn(callback_data="connect_menu", text="Назад")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -90,7 +86,9 @@ async def topup_amount(cb: CallbackQuery, state: FSMContext):
         await _safe_edit_message(
             cb.message,
             "✏️ Введите сумму пополнения (минимум 50 ₽):",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[row_back_main()]),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[[back_btn(callback_data="topup", text="Назад")]]
+            ),
             parse_mode="HTML",
         )
         await cb.answer()

@@ -40,10 +40,6 @@ async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, pa
             await cb.message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
     except Exception:
         await cb.message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
-        try:
-            await cb.message.delete()
-        except Exception:
-            pass
 
 
 def device_selection_keyboard() -> InlineKeyboardMarkup:
@@ -69,7 +65,7 @@ def device_selection_keyboard() -> InlineKeyboardMarkup:
                     icon_custom_emoji_id=E.PC_LAPTOP,
                 )
             ],
-            row_back_main(),
+            [back_btn(callback_data="my_subscriptions", text="Назад")],
         ]
     )
 
@@ -88,7 +84,6 @@ def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardM
         return InlineKeyboardMarkup(
             inline_keyboard=[
                 [back_btn(callback_data="subdev:menu", text="К устройствам")],
-                row_back_main(),
             ]
         )
 
@@ -108,7 +103,6 @@ def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardM
             ]
         )
     rows.append([back_btn(callback_data="subdev:menu", text="К устройствам")])
-    rows.append(row_back_main())
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -404,11 +398,6 @@ async def show_cabinet(cb: CallbackQuery):
         except Exception:
             pass
         return
-    if isinstance(cb.message, Message):
-        try:
-            await cb.message.delete()
-        except Exception as del_err:
-            logger.debug("cabinet: could not delete old message: %s", del_err)
 
 
 @router.message(Command("sub"))
@@ -438,7 +427,7 @@ async def cmd_sub(msg: Message):
                         icon_custom_emoji_id=E.INSTRUCTION_BOOKMARK,
                     ),
                 ],
-                row_back_main(),
+                [back_btn(callback_data="connect_menu", text="Назад")],
             ]
         )
 
@@ -472,7 +461,7 @@ async def show_my_subscriptions(cb: CallbackQuery):
                         icon_custom_emoji_id=E.INSTRUCTION_BOOKMARK,
                     ),
                 ],
-                row_back_main(),
+                [back_btn(callback_data="connect_menu", text="Назад")],
             ]
         )
 
