@@ -1,5 +1,6 @@
 """Покупка подписки за баланс."""
 
+import time
 from html import escape
 
 from aiogram import Router, F
@@ -43,19 +44,17 @@ async def plans_keyboard(back_callback: str = "connect_menu"):
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-@router.callback_query(F.data.in_(("buy_sub", "buy_sub:subs")))
+@router.callback_query(F.data.in_(("buy_sub", "buy_sub:subs", "renew_sub")))
 async def buy_sub_start(cb: CallbackQuery):
     user = await get_or_create_user(cb.from_user.id)
     balance = user.get("balance") or 0
     plans = await get_plans()
-    text = (
-        "📦 <b>Купить подписку</b>\n\n"
-        f"Ваш баланс: <b>{balance:.2f} ₽</b>\n\n"
-        "Выберите тариф:"
-    )
+    is_renew = cb.data == "renew_sub"
+    title = "🔄 <b>Продлить подписку</b>" if is_renew else "📦 <b>Купить подписку</b>"
+    text = f"{title}\n\n" f"Ваш баланс: <b>{balance:.2f} ₽</b>\n\n" "Выберите тариф:"
     for p in plans:
         text += f"\n• {escape(p['title'])} — {p['price']} ₽"
-    back_callback = "my_subscriptions" if cb.data == "buy_sub:subs" else "connect_menu"
+    back_callback = "my_subscriptions" if cb.data in ("buy_sub:subs", "renew_sub") else "connect_menu"
     await _safe_edit_message(
         cb.message,
         text,
@@ -90,6 +89,10 @@ async def buy_plan(cb: CallbackQuery):
         await cb.answer("Тариф не найден", show_alert=True)
         return
 
+    user_before = await get_or_create_user(cb.from_user.id)
+    now = int(time.time())
+    was_active = bool((user_before.get("subscription_expires_at") or 0) > now)
+
     try:
         token, expires_at = await create_or_extend_subscription(
             cb.from_user.id,
@@ -103,8 +106,9 @@ async def buy_plan(cb: CallbackQuery):
 
     # Экран после покупки: как "Мои подписки", но с текстом успеха.
     # Кнопки дальше приведут к шагу подключения (subdev:*).
+    success_title = "✅ <b>Подписка продлена</b>" if was_active else "✅ <b>Успешная оплата</b>"
     success_text = (
-        "✅ <b>Успешная оплата</b>\n\n"
+        f"{success_title}\n\n"
         "Подключите подписку:\n"
     )
     await _safe_edit_message(

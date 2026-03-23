@@ -78,12 +78,23 @@ def _bridge_url(app: str, personal_sub_url: str) -> str:
     return f"{base}/open/{app}?u={quote(personal_sub_url, safe='')}"
 
 
+def _deep_link_url(app: str, personal_sub_url: str) -> str:
+    encoded = quote(personal_sub_url, safe="")
+    if app == "v2raytun":
+        return f"v2raytun://import/{encoded}"
+    if app == "happ":
+        return f"happ://import/{encoded}"
+    if app == "hiddify":
+        return f"hiddify://import/{encoded}#JetVPN"
+    return personal_sub_url
+
+
 def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardMarkup:
     """
     Шаг 2: кнопки-ссылки на HTTPS-страницу /open/... (редирект в приложение).
     Android / iOS: v2RayTun | Happ; ПК: Hiddify | Happ.
     """
-    if not IMPORT_BRIDGE_BASE or not personal_sub_url:
+    if not personal_sub_url:
         return InlineKeyboardMarkup(
             inline_keyboard=[
                 [back_btn(callback_data="subdev:menu", text="К устройствам")],
@@ -91,18 +102,24 @@ def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardM
         )
 
     rows = []
+    def _link(app: str) -> str:
+        # Если есть HTTPS-мост — используем его, иначе deep-link напрямую в приложение.
+        if IMPORT_BRIDGE_BASE:
+            return _bridge_url(app, personal_sub_url)
+        return _deep_link_url(app, personal_sub_url)
+
     if platform in ("android", "ios"):
         rows.append(
             [
-                InlineKeyboardButton(text="📱 v2RayTun", url=_bridge_url("v2raytun", personal_sub_url)),
-                InlineKeyboardButton(text="📱 Happ", url=_bridge_url("happ", personal_sub_url)),
+                InlineKeyboardButton(text="📱 v2RayTun", url=_link("v2raytun")),
+                InlineKeyboardButton(text="📱 Happ", url=_link("happ")),
             ]
         )
     elif platform == "pc":
         rows.append(
             [
-                InlineKeyboardButton(text="📱 Hiddify", url=_bridge_url("hiddify", personal_sub_url)),
-                InlineKeyboardButton(text="📱 Happ", url=_bridge_url("happ", personal_sub_url)),
+                InlineKeyboardButton(text="💻 Hiddify", url=_link("hiddify")),
+                InlineKeyboardButton(text="📱 Happ", url=_link("happ")),
             ]
         )
     rows.append([back_btn(callback_data="subdev:menu", text="К устройствам")])
@@ -118,6 +135,13 @@ def cabinet_keyboard() -> InlineKeyboardMarkup:
                     text="Подключиться",
                     callback_data="my_subscriptions",
                     icon_custom_emoji_id=E.MOLNY,
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Продлить подписку",
+                    callback_data="renew_sub",
+                    icon_custom_emoji_id=E.INSTRUCTION_BOOKMARK,
                 ),
             ],
             row_back_main(),
@@ -502,36 +526,40 @@ async def cmd_sub(msg: Message):
 @router.callback_query(F.data == "my_subscriptions")
 async def show_my_subscriptions(cb: CallbackQuery):
     """Мои подписки: выбор устройства → HTTPS-импорт."""
-    user = await get_or_create_user(cb.from_user.id)
-    token = user.get("subscription_token")
-    expires_at = user.get("subscription_expires_at")
-    personal_sub_url = await _sub_url_for_user(cb.from_user.id)
+    try:
+        user = await get_or_create_user(cb.from_user.id)
+        token = user.get("subscription_token")
+        expires_at = user.get("subscription_expires_at")
+        personal_sub_url = await _sub_url_for_user(cb.from_user.id)
 
-    now = int(time_module.time())
-    if token and expires_at and expires_at > now and personal_sub_url:
-        text = build_my_subscriptions_text(expires_at, platform=None)
-        kb = device_selection_keyboard()
-    else:
-        text = (
-            "📱 <b>Мои подписки</b>\n\n"
-            "Подписка не активна.\n\n"
-            "Купите подписку в разделе «Купить подписку»."
-        )
-        kb = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="Купить подписку",
-                        callback_data="buy_sub:subs",
-                        icon_custom_emoji_id=E.INSTRUCTION_BOOKMARK,
-                    ),
-                ],
-                [back_btn(callback_data="connect_menu", text="Назад")],
-            ]
-        )
+        now = int(time_module.time())
+        if token and expires_at and expires_at > now and personal_sub_url:
+            text = build_my_subscriptions_text(expires_at, platform=None)
+            kb = device_selection_keyboard()
+        else:
+            text = (
+                "📱 <b>Мои подписки</b>\n\n"
+                "Подписка не активна.\n\n"
+                "Купите подписку в разделе «Купить подписку»."
+            )
+            kb = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="Купить подписку",
+                            callback_data="buy_sub:subs",
+                            icon_custom_emoji_id=E.INSTRUCTION_BOOKMARK,
+                        ),
+                    ],
+                    [back_btn(callback_data="connect_menu", text="Назад")],
+                ]
+            )
 
-    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
-    await cb.answer()
+        await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
+        await cb.answer()
+    except Exception:
+        logger.exception("show_my_subscriptions failed")
+        await cb.answer("Не удалось открыть раздел. Попробуйте ещё раз.", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("subdev:"))
@@ -567,11 +595,6 @@ async def handle_subdev_step(cb: CallbackQuery):
         return
 
     text = build_my_subscriptions_text(expires_at, platform=platform)
-    if not IMPORT_BRIDGE_BASE:
-        text += (
-            "\n\n⚠️ Для кнопок импорта задайте на сервере переменную <b>PUBLIC_BASE_URL</b> "
-            "(или <b>IMPORT_BRIDGE_BASE</b>) — адрес, где доступен этот бот по HTTPS."
-        )
     kb = app_import_keyboard(platform, personal_sub_url)
     await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
     await cb.answer()

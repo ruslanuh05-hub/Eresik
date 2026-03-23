@@ -28,6 +28,50 @@ from database import (
 )
 from freekassa import verify_callback
 
+SUB_PROFILE_TITLE = "👾 JetVPN"
+SUB_SUPPORT_URL = "https://t.me/ezstar_tg"
+SUB_DESCRIPTION_LINES = [
+    "📊 Статистика использования указана выше",
+    "📍 Выберите подходящий сервер из списка ⬇️",
+    "📶 Для стабильной работы рекомендуем ближайшие локации",
+    "⚠️ Если не подключается — попробуйте сменить сервер",
+]
+
+
+def _apply_subscription_profile_meta(lines: list[str]) -> list[str]:
+    """
+    Нормализовать служебные мета-строки профиля подписки:
+    название, ссылка и описание (как в запросе пользователя).
+    """
+    filtered: list[str] = []
+    skip_prefixes = (
+        "#profile-title:",
+        "# profile-title:",
+        "#profile-update-interval:",
+        "# profile-update-interval:",
+        "#support-url:",
+        "# support-url:",
+        "#profile-web-page-url:",
+        "# profile-web-page-url:",
+        "#description:",
+        "# description:",
+    )
+    for line in lines:
+        low = line.strip().lower()
+        if any(low.startswith(p) for p in skip_prefixes):
+            continue
+        filtered.append(line)
+
+    meta = [
+        f"#profile-title: {SUB_PROFILE_TITLE}",
+        "#profile-update-interval: 6",
+        f"#support-url: {SUB_SUPPORT_URL}",
+        f"#profile-web-page-url: {SUB_SUPPORT_URL}",
+    ]
+    meta.extend(f"# {x}" for x in SUB_DESCRIPTION_LINES)
+    meta.append("")
+    return meta + filtered
+
 
 async def freekassa_callback(request: web.Request) -> web.Response:
     """
@@ -147,6 +191,7 @@ async def subscription_handler(request: web.Request) -> web.Response:
             new_lines.insert(0, f"# subscription-userinfo: upload=0; download=0; total=1073741824000; expire={expire_unix}")
             new_lines.insert(0, "")
 
+        new_lines = _apply_subscription_profile_meta(new_lines)
         result = "\n".join(new_lines)
 
         # Если ссылку открыли в обычном браузере, не показываем сырой vless-список.
