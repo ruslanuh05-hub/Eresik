@@ -46,27 +46,15 @@ async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, pa
 
 
 def device_selection_keyboard() -> InlineKeyboardMarkup:
-    """Шаг 1: выбор устройства (Android | iOS / ПК), премиум-иконки на кнопках."""
+    """Шаг 1: выбор устройства (Android | iOS / ПК). Без custom_emoji — стабильнее в callback."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(
-                    text="🤖 Android",
-                    callback_data="subdev:android",
-                    icon_custom_emoji_id=E.ANDROID_ROBOT,
-                ),
-                InlineKeyboardButton(
-                    text="🍏 iOS",
-                    callback_data="subdev:ios",
-                    icon_custom_emoji_id=E.IOS_APPLE,
-                ),
+                InlineKeyboardButton(text="🤖 Android", callback_data="subdev:android"),
+                InlineKeyboardButton(text="🍏 iOS", callback_data="subdev:ios"),
             ],
             [
-                InlineKeyboardButton(
-                    text="💻 ПК",
-                    callback_data="subdev:pc",
-                    icon_custom_emoji_id=E.PC_LAPTOP,
-                )
+                InlineKeyboardButton(text="💻 ПК", callback_data="subdev:pc"),
             ],
             [back_btn(callback_data="connect_menu", text="Назад")],
         ]
@@ -103,10 +91,13 @@ def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardM
 
     rows = []
     def _link(app: str) -> str:
-        # Если есть HTTPS-мост — используем его, иначе deep-link напрямую в приложение.
+        # Telegram принимает только http/https в url=, не v2raytun://.
         if IMPORT_BRIDGE_BASE:
             return _bridge_url(app, personal_sub_url)
-        return _deep_link_url(app, personal_sub_url)
+        # Fallback: сама ссылка подписки (https) — откроется в браузере.
+        if personal_sub_url and personal_sub_url.startswith("https://"):
+            return personal_sub_url
+        return personal_sub_url or ""
 
     if platform in ("android", "ios"):
         rows.append(
@@ -526,6 +517,7 @@ async def cmd_sub(msg: Message):
 @router.callback_query(F.data == "my_subscriptions")
 async def show_my_subscriptions(cb: CallbackQuery):
     """Мои подписки: выбор устройства → HTTPS-импорт."""
+    await cb.answer()
     try:
         user = await get_or_create_user(cb.from_user.id)
         token = user.get("subscription_token")
@@ -556,10 +548,15 @@ async def show_my_subscriptions(cb: CallbackQuery):
             )
 
         await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
-        await cb.answer()
     except Exception:
         logger.exception("show_my_subscriptions failed")
-        await cb.answer("Не удалось открыть раздел. Попробуйте ещё раз.", show_alert=True)
+        try:
+            await cb.bot.send_message(
+                cb.from_user.id,
+                "Не удалось открыть раздел. Попробуйте команду /sub или /start.",
+            )
+        except Exception:
+            pass
 
 
 @router.callback_query(F.data.startswith("subdev:"))
@@ -575,9 +572,9 @@ async def handle_subdev_step(cb: CallbackQuery):
         if not (token and expires_at and expires_at > now and personal_sub_url):
             await cb.answer("Подписка не активна", show_alert=True)
             return
+        await cb.answer()
         text = build_my_subscriptions_text(expires_at, platform=None)
         await _safe_edit_message(cb, text, reply_markup=device_selection_keyboard(), parse_mode="HTML")
-        await cb.answer()
         return
 
     platform = data.split(":", 1)[1]
@@ -585,16 +582,26 @@ async def handle_subdev_step(cb: CallbackQuery):
         await cb.answer()
         return
 
-    user = await get_or_create_user(cb.from_user.id)
-    token = user.get("subscription_token")
-    expires_at = user.get("subscription_expires_at")
-    personal_sub_url = await _sub_url_for_user(cb.from_user.id)
-    now = int(time_module.time())
-    if not (token and expires_at and expires_at > now and personal_sub_url):
-        await cb.answer("Подписка не активна", show_alert=True)
-        return
+    try:
+        user = await get_or_create_user(cb.from_user.id)
+        token = user.get("subscription_token")
+        expires_at = user.get("subscription_expires_at")
+        personal_sub_url = await _sub_url_for_user(cb.from_user.id)
+        now = int(time_module.time())
+        if not (token and expires_at and expires_at > now and personal_sub_url):
+            await cb.answer("Подписка не активна", show_alert=True)
+            return
 
-    text = build_my_subscriptions_text(expires_at, platform=platform)
-    kb = app_import_keyboard(platform, personal_sub_url)
-    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
-    await cb.answer()
+        await cb.answer()
+        text = build_my_subscriptions_text(expires_at, platform=platform)
+        kb = app_import_keyboard(platform, personal_sub_url)
+        await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
+    except Exception:
+        logger.exception("handle_subdev_step failed")
+        try:
+            await cb.bot.send_message(
+                cb.from_user.id,
+                "Не удалось открыть экран. Проверьте, что подписка активна, и попробуйте /sub.",
+            )
+        except Exception:
+            pass

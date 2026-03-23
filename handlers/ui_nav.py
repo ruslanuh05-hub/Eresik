@@ -90,6 +90,21 @@ async def apply_screen_from_callback(
     """
     msg = cb.message
     if not msg:
+        # Сообщение недоступно — отправляем новое в чат.
+        chat_id = cb.from_user.id
+        try:
+            photo_path = _photo_path_for_mode(photo_mode) if photo_mode != "none" else None
+            if photo_path and photo_path.exists():
+                await cb.bot.send_photo(
+                    chat_id, FSInputFile(photo_path),
+                    caption=text, parse_mode=parse_mode, reply_markup=reply_markup,
+                )
+            else:
+                await cb.bot.send_message(
+                    chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup,
+                )
+        except Exception:
+            logger.debug("apply_screen: send when msg is None failed", exc_info=True)
         return
 
     if photo_mode != "none" and msg.photo:
