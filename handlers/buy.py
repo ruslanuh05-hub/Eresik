@@ -101,12 +101,17 @@ async def buy_plan(cb: CallbackQuery):
         await cb.answer(str(e), show_alert=True)
         return
 
-    success_text = build_purchase_success_text(plan["title"], expires_at)
+    # Экран после покупки: как "Мои подписки", но с текстом успеха.
+    # Кнопки дальше приведут к шагу подключения (subdev:*).
+    success_text = (
+        "✅ <b>Успешная оплата</b>\n\n"
+        "Подключите подписку:\n"
+    )
     await _safe_edit_message(
         cb.message,
         success_text,
         reply_markup=device_selection_keyboard(),
         parse_mode="HTML",
     )
-    await cb.answer("Подписка оформлена!")
+    await cb.answer()
 

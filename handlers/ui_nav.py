@@ -129,7 +129,52 @@ async def apply_screen_from_callback(
                 await msg.edit_text(text, reply_markup=reply_markup)
     except Exception:
         logger.debug("apply_screen: edit caption/text failed", exc_info=True)
-        await msg.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
+        # При InaccessibleMessage `msg.answer()` может не сработать.
+        chat_id = None
+        try:
+            chat_id = msg.chat.id if msg.chat else None
+        except Exception:
+            chat_id = None
+        if chat_id is None:
+            chat_id = cb.from_user.id
+
+        try:
+            if photo_mode != "none":
+                photo_path = _photo_path_for_mode(photo_mode)
+                if photo_path is not None and photo_path.exists():
+                    media_obj = FSInputFile(photo_path)
+                elif msg.photo:
+                    color = _placeholder_color_for_mode(photo_mode)
+                    placeholder = _placeholder_png_bytes(color)
+                    media_obj = BufferedInputFile(placeholder, filename=f"{photo_mode}.png")
+                else:
+                    media_obj = None
+
+                if media_obj is not None:
+                    # Для отправки фото parse_mode передаём только когда он задан.
+                    if parse_mode is not None:
+                        await cb.bot.send_photo(
+                            chat_id,
+                            media=media_obj,
+                            caption=text,
+                            parse_mode=parse_mode,
+                            reply_markup=reply_markup,
+                        )
+                    else:
+                        await cb.bot.send_photo(
+                            chat_id,
+                            media=media_obj,
+                            caption=text,
+                            reply_markup=reply_markup,
+                        )
+                    return
+            # По умолчанию отправляем текст.
+            if parse_mode is not None:
+                await cb.bot.send_message(chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup)
+            else:
+                await cb.bot.send_message(chat_id, text, reply_markup=reply_markup)
+        except Exception:
+            logger.debug("apply_screen: fallback send failed", exc_info=True)
 
 
 async def apply_screen_from_message(

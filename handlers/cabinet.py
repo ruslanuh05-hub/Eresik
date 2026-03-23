@@ -51,24 +51,24 @@ def device_selection_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="ANDROID",
+                    text="🤖 Android",
                     callback_data="subdev:android",
                     icon_custom_emoji_id=E.ANDROID_ROBOT,
                 ),
                 InlineKeyboardButton(
-                    text="iOS",
+                    text="🍏 iOS",
                     callback_data="subdev:ios",
                     icon_custom_emoji_id=E.IOS_APPLE,
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="ПК",
+                    text="💻 ПК",
                     callback_data="subdev:pc",
                     icon_custom_emoji_id=E.PC_LAPTOP,
                 )
             ],
-            [back_btn(callback_data="my_subscriptions", text="Назад")],
+            [back_btn(callback_data="connect_menu", text="Назад")],
         ]
     )
 
