@@ -21,7 +21,7 @@ async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mo
         text=text,
         reply_markup=reply_markup,
         parse_mode=parse_mode,
-        photo_mode="welcome",
+        photo_mode="buy",
     )
 
 

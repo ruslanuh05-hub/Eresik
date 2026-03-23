@@ -49,14 +49,20 @@ async def _strip_reply_keyboard(bot, chat_id: int) -> None:
         logger.debug("strip reply keyboard skipped", exc_info=True)
 
 
-async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, parse_mode: str = "HTML"):
-    """При сообщении с фото — смена на приветственное изображение + подпись (не залипает кадр профиля)."""
+async def _safe_edit_message(
+    cb: CallbackQuery,
+    text: str,
+    reply_markup=None,
+    parse_mode: str = "HTML",
+    photo_mode: str = "welcome",
+):
+    """Редактирование экрана: меняем caption и фото по `photo_mode`."""
     await apply_screen_from_callback(
         cb,
         text=text,
         reply_markup=reply_markup,
         parse_mode=parse_mode,
-        photo_mode="welcome",
+        photo_mode=photo_mode,
     )
 
 
@@ -186,7 +192,7 @@ async def show_connect_menu(cb: CallbackQuery):
         text=text,
         reply_markup=kb,
         parse_mode=ParseMode.HTML,
-        photo_mode="welcome",
+        photo_mode="connect",
     )
     await cb.answer()
 
@@ -295,7 +301,7 @@ async def show_support(cb: CallbackQuery):
             row_back_main(),
         ]
     )
-    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
+    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML", photo_mode="support")
     await cb.answer()
 
 
@@ -314,5 +320,5 @@ async def show_about(cb: CallbackQuery):
             row_back_main(),
         ]
     )
-    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
+    await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML", photo_mode="about")
     await cb.answer()

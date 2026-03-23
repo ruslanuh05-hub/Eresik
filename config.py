@@ -72,11 +72,22 @@ WEBHOOK_PATH = "/webhook"
 SUBSCRIPTION_BASE_URL = os.getenv("SUBSCRIPTION_BASE_URL", "https://sub1.jetstoreapp.ru/v2raytun-sub")
 UPSTREAM_SUB_URL = os.getenv("UPSTREAM_SUB_URL", SUBSCRIPTION_BASE_URL)
 
-# Фото для личного кабинета (фон без текста на изображении)
-CABINET_BG_IMAGE = Path(__file__).parent / "assets" / "cabinet_bg.png"
+# Фото для экранов (файлы пользователя)
+MAIN_MENU_IMAGE = Path(__file__).parent / "assets" / "welk.jpg"
+PROFILE_IMAGE = Path(__file__).parent / "assets" / "prof.jpg"
+ABOUT_IMAGE = Path(__file__).parent / "assets" / "faq.jpg"
+SUPPORT_IMAGE = Path(__file__).parent / "assets" / "help.jpg"
+CONNECT_IMAGE = Path(__file__).parent / "assets" / "buyvpn.jpg"
+TOPUP_IMAGE = Path(__file__).parent / "assets" / "bal.jpg"
 
-# Фото для главного меню (команда /start)
-WELCOME_IMAGE = Path(__file__).parent / "assets" / "welcome.png"
+# Алиасы для старого кода:
+# - раньше использовались PNG, сейчас переиспользуем JPG
+CABINET_BG_IMAGE = PROFILE_IMAGE
+WELCOME_IMAGE = MAIN_MENU_IMAGE
+
+# Для унифицированного выбора фото по блокам
+SUBSCRIPTIONS_IMAGE = CONNECT_IMAGE  # "Моя подписка"
+BUY_SUBSCRIPTION_IMAGE = CONNECT_IMAGE  # "Купить подписку"
 
 # Тарифы: id -> (дни, название). Цена = дни * price_per_day
 DEFAULT_PRICE_PER_DAY = 70 / 30  # 70 ₽/месяц изначально

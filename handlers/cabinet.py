@@ -11,6 +11,7 @@ from aiogram.types import (
     CallbackQuery,
     Message,
     BufferedInputFile,
+    FSInputFile,
     InputMediaPhoto,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
@@ -18,12 +19,12 @@ from aiogram.types import (
 from aiogram.filters import Command
 
 from database import get_or_create_user
-from image_gen import generate_subscription_image
 from config import (
     CABINET_PREMIUM_EMOJI,
     IMPORT_BRIDGE_BASE,
     PUBLIC_BASE_URL,
     UPSTREAM_SUB_URL,
+    PROFILE_IMAGE,
 )
 from tgemoji import E, tg
 from handlers.keyboards_common import back_btn, row_back_main
@@ -40,7 +41,7 @@ async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, pa
         text=text,
         reply_markup=reply_markup,
         parse_mode=parse_mode,
-        photo_mode="welcome",
+        photo_mode="subs",
     )
 
 
@@ -350,21 +351,13 @@ async def cmd_my(msg: Message):
     user = await get_or_create_user(msg.from_user.id)
 
     kb = cabinet_keyboard()
-    img_bytes: bytes | None = None
-    try:
-        img_bytes = generate_subscription_image(
-            user.get("subscription_expires_at"),
-            user.get("nickname") or msg.from_user.username or "",
-        )
-    except Exception:
-        logger.exception("cmd_my: cabinet image generation failed")
     try:
         await _deliver_cabinet(
             msg.bot,
             msg.chat.id,
             msg.from_user.id,
             reply_markup=kb,
-            photo_bytes=img_bytes,
+            photo_bytes=PROFILE_IMAGE.read_bytes() if PROFILE_IMAGE.exists() else None,
         )
     except Exception:
         logger.exception("cmd_my: _deliver_cabinet failed")
@@ -380,29 +373,31 @@ async def show_cabinet(cb: CallbackQuery):
     uid = cb.from_user.id
     user = await get_or_create_user(uid)
     kb = cabinet_keyboard()
-    img_bytes: bytes | None = None
-    try:
-        img_bytes = generate_subscription_image(
-            user.get("subscription_expires_at"),
-            user.get("nickname") or cb.from_user.username or "",
-        )
-    except Exception:
-        logger.exception("show_cabinet: image generation failed")
 
     msg = cb.message
     attempts = _cabinet_caption_attempts(user, uid)
 
     if msg:
-        if img_bytes and msg.photo:
+        if msg.photo and PROFILE_IMAGE.exists():
             for i, (text, pmode) in enumerate(attempts):
-                media_kw: dict = {
-                    "media": BufferedInputFile(img_bytes, filename="cabinet.png"),
-                    "caption": text,
-                }
-                if pmode:
-                    media_kw["parse_mode"] = pmode
                 try:
-                    await msg.edit_media(InputMediaPhoto(**media_kw), reply_markup=kb)
+                    if pmode:
+                        await msg.edit_media(
+                            InputMediaPhoto(
+                                media=FSInputFile(PROFILE_IMAGE),
+                                caption=text,
+                                parse_mode=pmode,
+                            ),
+                            reply_markup=kb,
+                        )
+                    else:
+                        await msg.edit_media(
+                            InputMediaPhoto(
+                                media=FSInputFile(PROFILE_IMAGE),
+                                caption=text,
+                            ),
+                            reply_markup=kb,
+                        )
                     return
                 except TelegramBadRequest as e:
                     err_s = str(e)
@@ -457,7 +452,7 @@ async def show_cabinet(cb: CallbackQuery):
             uid,
             uid,
             reply_markup=kb,
-            photo_bytes=img_bytes,
+            photo_bytes=PROFILE_IMAGE.read_bytes() if PROFILE_IMAGE.exists() else None,
         )
     except Exception:
         logger.exception("show_cabinet: _deliver_cabinet failed")
