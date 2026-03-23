@@ -371,82 +371,82 @@ async def show_cabinet(cb: CallbackQuery):
     """Профиль: в том же сообщении с фото — смена медиа на фон кабинета + подпись."""
     await cb.answer()
     uid = cb.from_user.id
-    user = await get_or_create_user(uid)
     kb = cabinet_keyboard()
+    try:
+        user = await get_or_create_user(uid)
+        msg = cb.message
+        attempts = _cabinet_caption_attempts(user, uid)
 
-    msg = cb.message
-    attempts = _cabinet_caption_attempts(user, uid)
+        if msg:
+            if msg.photo and PROFILE_IMAGE.exists():
+                for i, (text, pmode) in enumerate(attempts):
+                    try:
+                        if pmode:
+                            await msg.edit_media(
+                                InputMediaPhoto(
+                                    media=FSInputFile(PROFILE_IMAGE),
+                                    caption=text,
+                                    parse_mode=pmode,
+                                ),
+                                reply_markup=kb,
+                            )
+                        else:
+                            await msg.edit_media(
+                                InputMediaPhoto(
+                                    media=FSInputFile(PROFILE_IMAGE),
+                                    caption=text,
+                                ),
+                                reply_markup=kb,
+                            )
+                        return
+                    except TelegramBadRequest as e:
+                        err_s = str(e)
+                        is_last = i == len(attempts) - 1
+                        if _telegram_error_soft_fail(err_s) and not is_last:
+                            logger.debug(
+                                "show_cabinet: edit_media fallback next (parse_mode=%r): %s",
+                                pmode,
+                                e,
+                            )
+                            continue
+                        logger.warning(
+                            "show_cabinet: edit_media failed (parse_mode=%r): %s",
+                            pmode,
+                            e,
+                        )
 
-    if msg:
-        if msg.photo and PROFILE_IMAGE.exists():
             for i, (text, pmode) in enumerate(attempts):
                 try:
-                    if pmode:
-                        await msg.edit_media(
-                            InputMediaPhoto(
-                                media=FSInputFile(PROFILE_IMAGE),
-                                caption=text,
-                                parse_mode=pmode,
-                            ),
-                            reply_markup=kb,
-                        )
+                    if msg.caption is not None:
+                        if pmode:
+                            await msg.edit_caption(caption=text, parse_mode=pmode, reply_markup=kb)
+                        else:
+                            await msg.edit_caption(caption=text, reply_markup=kb)
                     else:
-                        await msg.edit_media(
-                            InputMediaPhoto(
-                                media=FSInputFile(PROFILE_IMAGE),
-                                caption=text,
-                            ),
-                            reply_markup=kb,
-                        )
+                        if pmode:
+                            await msg.edit_text(text, parse_mode=pmode, reply_markup=kb)
+                        else:
+                            await msg.edit_text(text, reply_markup=kb)
                     return
                 except TelegramBadRequest as e:
                     err_s = str(e)
                     is_last = i == len(attempts) - 1
                     if _telegram_error_soft_fail(err_s) and not is_last:
                         logger.debug(
-                            "show_cabinet: edit_media fallback next (parse_mode=%r): %s",
+                            "show_cabinet: edit caption/text fallback next (parse_mode=%r): %s",
                             pmode,
                             e,
                         )
                         continue
                     logger.warning(
-                        "show_cabinet: edit_media failed (parse_mode=%r): %s",
+                        "show_cabinet: edit caption/text failed (parse_mode=%r): %s",
                         pmode,
                         e,
                     )
+                except Exception:
+                    logger.exception("show_cabinet: unexpected edit error")
 
-        for i, (text, pmode) in enumerate(attempts):
-            try:
-                if msg.caption is not None:
-                    if pmode:
-                        await msg.edit_caption(caption=text, parse_mode=pmode, reply_markup=kb)
-                    else:
-                        await msg.edit_caption(caption=text, reply_markup=kb)
-                else:
-                    if pmode:
-                        await msg.edit_text(text, parse_mode=pmode, reply_markup=kb)
-                    else:
-                        await msg.edit_text(text, reply_markup=kb)
-                return
-            except TelegramBadRequest as e:
-                err_s = str(e)
-                is_last = i == len(attempts) - 1
-                if _telegram_error_soft_fail(err_s) and not is_last:
-                    logger.debug(
-                        "show_cabinet: edit caption/text fallback next (parse_mode=%r): %s",
-                        pmode,
-                        e,
-                    )
-                    continue
-                logger.warning(
-                    "show_cabinet: edit caption/text failed (parse_mode=%r): %s",
-                    pmode,
-                    e,
-                )
-            except Exception:
-                logger.exception("show_cabinet: unexpected edit error")
-
-    try:
+        # Fallback: отправить профиль новым сообщением пользователю.
         await _deliver_cabinet(
             cb.bot,
             uid,
@@ -455,11 +455,11 @@ async def show_cabinet(cb: CallbackQuery):
             photo_bytes=PROFILE_IMAGE.read_bytes() if PROFILE_IMAGE.exists() else None,
         )
     except Exception:
-        logger.exception("show_cabinet: _deliver_cabinet failed")
+        logger.exception("show_cabinet: fatal error")
         try:
             await cb.bot.send_message(
                 uid,
-                "Не удалось открыть профиль. Напишите команду /my",
+                "Не удалось открыть профиль. Попробуйте ещё раз или отправьте команду /my",
             )
         except Exception:
             pass
