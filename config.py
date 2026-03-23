@@ -72,18 +72,8 @@ WEBHOOK_PATH = "/webhook"
 SUBSCRIPTION_BASE_URL = os.getenv("SUBSCRIPTION_BASE_URL", "https://sub1.jetstoreapp.ru/v2raytun-sub")
 UPSTREAM_SUB_URL = os.getenv("UPSTREAM_SUB_URL", SUBSCRIPTION_BASE_URL)
 
-# Фото для личного кабинета (путь к фоновому изображению)
+# Фото для личного кабинета (фон без текста на изображении)
 CABINET_BG_IMAGE = Path(__file__).parent / "assets" / "cabinet_bg.png"
-
-# Координаты текста подписки на картинке кабинета:
-# TEXT_X — горизонталь: число пикселей или 0.0–1.0 (0.5 = центр)
-# TEXT_Y_FROM_BOTTOM — базовая линия Y, пикселей от низа изображения
-# LABEL_OFFSET — смещение «Подписка до:» вверх от базы (отрицательное)
-# DATE_OFFSET — смещение даты вниз от базы (положительное)
-CABINET_TEXT_X = 0.7  # 0.5 = центр
-CABINET_TEXT_Y_FROM_BOTTOM = 300
-CABINET_LABEL_OFFSET = -50
-CABINET_DATE_OFFSET = 15 # поднять дату/время выше (было 15)
 
 # Фото для главного меню (команда /start)
 WELCOME_IMAGE = Path(__file__).parent / "assets" / "welcome.png"

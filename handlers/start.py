@@ -33,6 +33,7 @@ from config import (
     GUIDE_PC_VIDEO,
 )
 from handlers.keyboards_common import markup_back_main_only, row_back_main
+from handlers.ui_nav import apply_screen_from_callback
 
 logger = logging.getLogger("jvpn-bot.start")
 
@@ -49,14 +50,14 @@ async def _strip_reply_keyboard(bot, chat_id: int) -> None:
 
 
 async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, parse_mode: str = "HTML"):
-    """Безопасно редактировать текст/подпись сообщения из callback."""
-    try:
-        if cb.message and cb.message.caption is not None:
-            await cb.message.edit_caption(caption=text, parse_mode=parse_mode, reply_markup=reply_markup)
-        else:
-            await cb.message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
-    except Exception:
-        await cb.message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
+    """При сообщении с фото — смена на приветственное изображение + подпись (не залипает кадр профиля)."""
+    await apply_screen_from_callback(
+        cb,
+        text=text,
+        reply_markup=reply_markup,
+        parse_mode=parse_mode,
+        photo_mode="welcome",
+    )
 
 
 def main_menu_inline() -> InlineKeyboardMarkup:
@@ -161,33 +162,32 @@ async def back_to_main(cb: CallbackQuery, state: FSMContext):
     text = _welcome_text()
     kb = main_menu_inline()
     uid = cb.from_user.id
-    try:
-        if cb.message and cb.message.caption is not None:
-            await cb.message.edit_caption(
-                caption=text,
-                parse_mode=ParseMode.HTML,
-                reply_markup=kb,
-            )
-        else:
-            await cb.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb)
-    except Exception:
+    if not cb.message:
         try:
             await cb.bot.send_message(uid, text, parse_mode=ParseMode.HTML, reply_markup=kb)
         except Exception:
-            logger.exception("back_to_main: send welcome fallback failed")
+            logger.exception("back_to_main: send welcome (no message) failed")
+        return
+    await apply_screen_from_callback(
+        cb,
+        text=text,
+        reply_markup=kb,
+        parse_mode=ParseMode.HTML,
+        photo_mode="welcome",
+    )
 
 
 @router.callback_query(F.data == "connect_menu")
 async def show_connect_menu(cb: CallbackQuery):
     text = f'{tg(E.MOLNY, "⚡")} <b>Подключиться</b>\n\nВыберите действие:'
     kb = connect_keyboard()
-    try:
-        if cb.message.caption is not None:
-            await cb.message.edit_caption(caption=text, parse_mode=ParseMode.HTML, reply_markup=kb)
-        else:
-            await cb.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb)
-    except Exception:
-        await cb.message.answer(text, parse_mode=ParseMode.HTML, reply_markup=kb)
+    await apply_screen_from_callback(
+        cb,
+        text=text,
+        reply_markup=kb,
+        parse_mode=ParseMode.HTML,
+        photo_mode="welcome",
+    )
     await cb.answer()
 
 

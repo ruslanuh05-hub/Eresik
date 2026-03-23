@@ -9,22 +9,20 @@ from aiogram.filters import Command
 from database import get_or_create_user, get_plans, create_or_extend_subscription
 from handlers.cabinet import build_purchase_success_text, device_selection_keyboard
 from handlers.keyboards_common import back_btn
+from handlers.ui_nav import apply_screen_from_message
 
 router = Router()
 
 
 async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mode: str = "HTML") -> None:
-    """
-    Telegram: для сообщений с фото нужно редактировать caption, а не text.
-    Делаем безопасный вариант с fallback на answer.
-    """
-    try:
-        if message.caption is not None:
-            await message.edit_caption(text, parse_mode=parse_mode, reply_markup=reply_markup)
-        else:
-            await message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
-    except Exception:
-        await message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
+    """Сообщение с фото — возвращаем приветственный кадр + подпись."""
+    await apply_screen_from_message(
+        message,
+        text=text,
+        reply_markup=reply_markup,
+        parse_mode=parse_mode,
+        photo_mode="welcome",
+    )
 
 
 async def plans_keyboard(back_callback: str = "connect_menu"):

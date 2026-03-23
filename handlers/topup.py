@@ -11,6 +11,7 @@ from database import get_or_create_user, add_payment, add_balance
 from freekassa import create_payment_url
 from config import FREKASSA_SHOP_ID, PUBLIC_BASE_URL, ADMIN_IDS
 from handlers.keyboards_common import back_btn, row_back_main
+from handlers.ui_nav import apply_screen_from_message
 
 router = Router()
 
@@ -20,17 +21,14 @@ class TopUpStates(StatesGroup):
 
 
 async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mode: str = "HTML") -> None:
-    """
-    Для сообщений с фото редактируем caption, иначе text.
-    Если редактирование не удалось — отправляем новое сообщение.
-    """
-    try:
-        if message.caption is not None:
-            await message.edit_caption(text, parse_mode=parse_mode, reply_markup=reply_markup)
-        else:
-            await message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
-    except Exception:
-        await message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
+    """Сообщение с фото — приветственный кадр + подпись."""
+    await apply_screen_from_message(
+        message,
+        text=text,
+        reply_markup=reply_markup,
+        parse_mode=parse_mode,
+        photo_mode="welcome",
+    )
 
 
 def topup_keyboard(is_admin: bool = False):
@@ -166,7 +164,12 @@ async def process_topup(cb: CallbackQuery, telegram_id: int, amount: float):
     order_id = f"jvpn_{telegram_id}_{int(time.time())}"
     url = create_payment_url(amount, order_id, telegram_id)
     if not url:
-        await cb.message.edit_text("⚠️ Ошибка создания платежа.", reply_markup=None)
+        await _safe_edit_message(
+            cb.message,
+            "⚠️ Ошибка создания платежа.",
+            reply_markup=None,
+            parse_mode="HTML",
+        )
         return
 
     await add_payment(telegram_id, amount, order_id, "", "pending")

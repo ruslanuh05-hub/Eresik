@@ -11,6 +11,7 @@ from aiogram.types import (
     CallbackQuery,
     Message,
     BufferedInputFile,
+    InputMediaPhoto,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
 )
@@ -26,20 +27,21 @@ from config import (
 )
 from tgemoji import E, tg
 from handlers.keyboards_common import back_btn, row_back_main
+from handlers.ui_nav import apply_screen_from_callback
 
 logger = logging.getLogger("jvpn-bot.cabinet")
 router = Router()
 
 
 async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, parse_mode: str = "HTML"):
-    """Безопасно редактировать text/caption из callback."""
-    try:
-        if cb.message and cb.message.caption is not None:
-            await cb.message.edit_caption(caption=text, parse_mode=parse_mode, reply_markup=reply_markup)
-        else:
-            await cb.message.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
-    except Exception:
-        await cb.message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
+    """Редактирование экрана: при фото — смена на приветственное изображение + подпись."""
+    await apply_screen_from_callback(
+        cb,
+        text=text,
+        reply_markup=reply_markup,
+        parse_mode=parse_mode,
+        photo_mode="welcome",
+    )
 
 
 def device_selection_keyboard() -> InlineKeyboardMarkup:
@@ -245,6 +247,20 @@ def _telegram_error_soft_fail(msg: str) -> bool:
     )
 
 
+def _cabinet_caption_attempts(user: dict, telegram_id: int) -> list[tuple[str, str | None]]:
+    """Варианты подписи профиля (HTML с премиум-эмодзи → HTML → plain)."""
+    attempts: list[tuple[str, str | None]] = []
+    if CABINET_PREMIUM_EMOJI:
+        attempts.append((_cabinet_html(user, telegram_id, rich_emoji=True), "HTML"))
+    attempts.extend(
+        [
+            (_cabinet_html(user, telegram_id, rich_emoji=False), "HTML"),
+            (_cabinet_plaintext(user, telegram_id), None),
+        ]
+    )
+    return attempts
+
+
 async def _deliver_cabinet(
     bot,
     chat_id: int,
@@ -262,15 +278,7 @@ async def _deliver_cabinet(
     По умолчанию без <tg-emoji> в тексте: см. CABINET_PREMIUM_EMOJI в config.
     """
     user = await get_or_create_user(telegram_user_id)
-    attempts: list[tuple[str, str | None]] = []
-    if CABINET_PREMIUM_EMOJI:
-        attempts.append((_cabinet_html(user, telegram_user_id, rich_emoji=True), "HTML"))
-    attempts.extend(
-        [
-            (_cabinet_html(user, telegram_user_id, rich_emoji=False), "HTML"),
-            (_cabinet_plaintext(user, telegram_user_id), None),
-        ]
-    )
+    attempts = _cabinet_caption_attempts(user, telegram_user_id)
     last_err: TelegramBadRequest | None = None
     for i, (text, parse_mode) in enumerate(attempts):
         try:
@@ -367,7 +375,7 @@ async def cmd_my(msg: Message):
 
 @router.callback_query(F.data == "cabinet")
 async def show_cabinet(cb: CallbackQuery):
-    """Профиль: send_message в чат пользователя (не reply на сообщение — работает с InaccessibleMessage)."""
+    """Профиль: в том же сообщении с фото — смена медиа на фон кабинета + подпись."""
     await cb.answer()
     uid = cb.from_user.id
     user = await get_or_create_user(uid)
@@ -380,6 +388,69 @@ async def show_cabinet(cb: CallbackQuery):
         )
     except Exception:
         logger.exception("show_cabinet: image generation failed")
+
+    msg = cb.message
+    attempts = _cabinet_caption_attempts(user, uid)
+
+    if msg:
+        if img_bytes and msg.photo:
+            for i, (text, pmode) in enumerate(attempts):
+                media_kw: dict = {
+                    "media": BufferedInputFile(img_bytes, filename="cabinet.png"),
+                    "caption": text,
+                }
+                if pmode:
+                    media_kw["parse_mode"] = pmode
+                try:
+                    await msg.edit_media(InputMediaPhoto(**media_kw), reply_markup=kb)
+                    return
+                except TelegramBadRequest as e:
+                    err_s = str(e)
+                    is_last = i == len(attempts) - 1
+                    if _telegram_error_soft_fail(err_s) and not is_last:
+                        logger.debug(
+                            "show_cabinet: edit_media fallback next (parse_mode=%r): %s",
+                            pmode,
+                            e,
+                        )
+                        continue
+                    logger.warning(
+                        "show_cabinet: edit_media failed (parse_mode=%r): %s",
+                        pmode,
+                        e,
+                    )
+
+        for i, (text, pmode) in enumerate(attempts):
+            try:
+                if msg.caption is not None:
+                    if pmode:
+                        await msg.edit_caption(caption=text, parse_mode=pmode, reply_markup=kb)
+                    else:
+                        await msg.edit_caption(caption=text, reply_markup=kb)
+                else:
+                    if pmode:
+                        await msg.edit_text(text, parse_mode=pmode, reply_markup=kb)
+                    else:
+                        await msg.edit_text(text, reply_markup=kb)
+                return
+            except TelegramBadRequest as e:
+                err_s = str(e)
+                is_last = i == len(attempts) - 1
+                if _telegram_error_soft_fail(err_s) and not is_last:
+                    logger.debug(
+                        "show_cabinet: edit caption/text fallback next (parse_mode=%r): %s",
+                        pmode,
+                        e,
+                    )
+                    continue
+                logger.warning(
+                    "show_cabinet: edit caption/text failed (parse_mode=%r): %s",
+                    pmode,
+                    e,
+                )
+            except Exception:
+                logger.exception("show_cabinet: unexpected edit error")
+
     try:
         await _deliver_cabinet(
             cb.bot,
@@ -397,7 +468,6 @@ async def show_cabinet(cb: CallbackQuery):
             )
         except Exception:
             pass
-        return
 
 
 @router.message(Command("sub"))
