@@ -25,7 +25,6 @@ from config import (
     PUBLIC_BASE_URL,
     UPSTREAM_SUB_URL,
     PROFILE_IMAGE,
-    CONNECT_IMAGE,
 )
 from tgemoji import E, tg
 from handlers.keyboards_common import back_btn, row_back_main
@@ -35,23 +34,29 @@ router = Router()
 
 
 async def _send_subs_screen(cb: CallbackQuery, text: str, reply_markup, parse_mode: str = "HTML"):
-    """Гарантированно показать экран: отправка нового сообщения (работает при недоступности edit)."""
+    """Гарантированно показать экран: только send_message (без фото, избегаем DOCUMENT_INVALID)."""
     uid = cb.from_user.id
-    try:
-        if CONNECT_IMAGE.exists():
-            await cb.bot.send_photo(
-                uid, FSInputFile(CONNECT_IMAGE),
-                caption=text, parse_mode=parse_mode, reply_markup=reply_markup,
-            )
-        else:
-            await cb.bot.send_message(uid, text, parse_mode=parse_mode, reply_markup=reply_markup)
-    except Exception:
-        logger.exception("_send_subs_screen failed")
-        await cb.bot.send_message(uid, text, parse_mode=parse_mode, reply_markup=reply_markup)
+    for use_markup in (True, False):
+        for pm in (parse_mode, None):
+            try:
+                kb = reply_markup if use_markup else None
+                await cb.bot.send_message(uid, text, parse_mode=pm, reply_markup=kb)
+                return
+            except Exception as e:
+                if use_markup or pm:
+                    logger.debug("_send_subs_screen retry (markup=%s, pm=%s): %s", use_markup, pm, e)
+                else:
+                    logger.exception("_send_subs_screen failed")
+                    raise
+
+
+def _plain_back_btn(callback_data: str, text: str = "← Назад") -> InlineKeyboardButton:
+    """Кнопка «Назад» без custom_emoji — избегаем DOCUMENT_INVALID."""
+    return InlineKeyboardButton(text=text, callback_data=callback_data)
 
 
 def device_selection_keyboard() -> InlineKeyboardMarkup:
-    """Шаг 1: выбор устройства (Android | iOS / ПК). Без custom_emoji — стабильнее в callback."""
+    """Шаг 1: выбор устройства (Android | iOS / ПК)."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -61,7 +66,7 @@ def device_selection_keyboard() -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(text="💻 ПК", callback_data="subdev:pc"),
             ],
-            [back_btn(callback_data="connect_menu", text="Назад")],
+            [_plain_back_btn("connect_menu", "← Назад")],
         ]
     )
 
@@ -89,36 +94,33 @@ def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardM
     """
     if not personal_sub_url:
         return InlineKeyboardMarkup(
-            inline_keyboard=[
-                [back_btn(callback_data="subdev:menu", text="К устройствам")],
-            ]
+            inline_keyboard=[[_plain_back_btn("subdev:menu", "← К устройствам")]],
         )
 
     rows = []
-    def _link(app: str) -> str:
-        # Telegram принимает только http/https в url=, не v2raytun://.
+    def _link(app: str) -> str | None:
+        # Telegram url= только http/https.
         if IMPORT_BRIDGE_BASE:
-            return _bridge_url(app, personal_sub_url)
-        # Fallback: сама ссылка подписки (https) — откроется в браузере.
-        if personal_sub_url and personal_sub_url.startswith("https://"):
-            return personal_sub_url
-        return personal_sub_url or ""
+            u = _bridge_url(app, personal_sub_url)
+        elif personal_sub_url and personal_sub_url.startswith("https://"):
+            u = personal_sub_url
+        else:
+            u = personal_sub_url or ""
+        return u if u.startswith("https://") and len(u) < 500 else None
+
+    def _url_btn(text: str, app: str) -> InlineKeyboardButton | None:
+        url = _link(app)
+        return InlineKeyboardButton(text=text, url=url) if url else None
 
     if platform in ("android", "ios"):
-        rows.append(
-            [
-                InlineKeyboardButton(text="📱 v2RayTun", url=_link("v2raytun")),
-                InlineKeyboardButton(text="📱 Happ", url=_link("happ")),
-            ]
-        )
+        btns = [_url_btn("📱 v2RayTun", "v2raytun"), _url_btn("📱 Happ", "happ")]
+        if any(btns):
+            rows.append([b for b in btns if b is not None])
     elif platform == "pc":
-        rows.append(
-            [
-                InlineKeyboardButton(text="💻 Hiddify", url=_link("hiddify")),
-                InlineKeyboardButton(text="📱 Happ", url=_link("happ")),
-            ]
-        )
-    rows.append([back_btn(callback_data="subdev:menu", text="К устройствам")])
+        btns = [_url_btn("💻 Hiddify", "hiddify"), _url_btn("📱 Happ", "happ")]
+        if any(btns):
+            rows.append([b for b in btns if b is not None])
+    rows.append([_plain_back_btn("subdev:menu", "← К устройствам")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
