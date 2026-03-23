@@ -229,7 +229,19 @@ async def subscription_handler(request: web.Request) -> web.Response:
     .meta p {{ margin:6px 0; color:#d1d5db; }}
     a.btn {{ display:block; text-decoration:none; color:#fff; background:#2563eb; padding:12px 14px; border-radius:10px; margin:10px 0; text-align:center; }}
     .hint {{ color:#9ca3af; font-size:14px; margin-top:16px; }}
+    .copy-btn {{ display:inline-block; background:#1e40af; color:#fff; padding:8px 14px; border-radius:8px; border:none; cursor:pointer; margin:6px 0; }}
   </style>
+  <script>
+    function copySub() {{
+      var u = {json.dumps(sub_url, ensure_ascii=False)};
+      if (navigator.clipboard && navigator.clipboard.writeText) {{
+        navigator.clipboard.writeText(u).then(function() {{
+          var el = document.getElementById('copy-msg');
+          if (el) {{ el.textContent = 'Скопировано!'; setTimeout(function() {{ el.textContent = ''; }}, 2000); }}
+        }});
+      }}
+    }}
+  </script>
 </head>
 <body>
   <div class="box">
@@ -249,6 +261,7 @@ async def subscription_handler(request: web.Request) -> web.Response:
     <a class="btn" href="{happ_link}">Открыть в Happ</a>
     <a class="btn" href="{hiddify_link}">Открыть в Hiddify</a>
     <a class="btn" href="{v2raytun_link}">Открыть в v2RayTun</a>
+    <p class="hint">Happ не импортировал? <button class="copy-btn" onclick="copySub()">Скопировать ссылку</button><span id="copy-msg"></span> — затем в Happ: <b>+</b> → Добавить по ссылке</p>
     <p class="hint">Если кнопки не сработали, откройте эту страницу с телефона и нажмите снова.</p>
   </div>
 </body>
@@ -320,9 +333,11 @@ def _validate_subscription_url(u: str) -> bool:
 
 
 def _deep_link_for_app(app: str, sub_url: str) -> str:
+    """Deep link для открытия приложения с импортом подписки."""
     if app == "v2raytun":
         return f"v2raytun://import/{sub_url}"
     if app == "happ":
+        # happ://import/ не документирован; используем raw URL. Fallback — ручной импорт.
         return f"happ://import/{sub_url}"
     if app == "hiddify":
         return f"hiddify://import/{sub_url}#JetVPN"
@@ -348,6 +363,7 @@ async def open_import_handler(request: web.Request) -> web.Response:
         return web.Response(status=404, text="Not found")
 
     deep_json = json.dumps(deep, ensure_ascii=False)
+    sub_url_esc = escape(u, quote=True)
     html = f"""<!doctype html>
 <html lang="ru">
 <head>
@@ -358,6 +374,11 @@ async def open_import_handler(request: web.Request) -> web.Response:
     body {{ font-family: system-ui, sans-serif; background:#0b1220; color:#e5e7eb; margin:0; padding:24px; }}
     .box {{ max-width:520px; margin:40px auto; background:#111827; padding:20px; border-radius:14px; border:1px solid #1f2937; }}
     a {{ color:#93c5fd; word-break:break-all; }}
+    .fallback {{ margin-top:20px; padding-top:16px; border-top:1px solid #1f2937; }}
+    .fallback p {{ color:#9ca3af; font-size:14px; margin:8px 0; }}
+    .copy-btn {{ display:inline-block; background:#2563eb; color:#fff; padding:10px 16px; border-radius:8px; border:none; cursor:pointer; margin-top:8px; }}
+    .copy-btn:active {{ background:#1d4ed8; }}
+    #copy-msg {{ color:#34d399; font-size:13px; margin-left:8px; }}
   </style>
   <script>
     (function() {{
@@ -365,6 +386,18 @@ async def open_import_handler(request: web.Request) -> web.Response:
       try {{ window.location.replace(deep); }} catch (e) {{}}
       setTimeout(function() {{ window.location.href = deep; }}, 300);
     }})();
+    function copySub() {{
+      var u = {json.dumps(u, ensure_ascii=False)};
+      if (navigator.clipboard && navigator.clipboard.writeText) {{
+        navigator.clipboard.writeText(u).then(function() {{
+          var el = document.getElementById('copy-msg');
+          if (el) {{ el.textContent = 'Скопировано!'; setTimeout(function() {{ el.textContent = ''; }}, 2000); }}
+        }});
+      }} else {{
+        var el = document.getElementById('copy-msg');
+        if (el) el.textContent = 'Скопируйте ссылку вручную';
+      }}
+    }}
   </script>
 </head>
 <body>
@@ -372,6 +405,12 @@ async def open_import_handler(request: web.Request) -> web.Response:
     <p>Открываем приложение…</p>
     <p>Если не открылось автоматически, нажмите:</p>
     <p><a href="{escape(deep, quote=True)}">Импортировать подписку</a></p>
+    <div class="fallback">
+      <p><b>Happ не импортировал подписку?</b></p>
+      <p>Скопируйте ссылку и в Happ: <b>+</b> → Добавить по ссылке → вставьте</p>
+      <button class="copy-btn" onclick="copySub()">Скопировать ссылку</button><span id="copy-msg"></span>
+      <p style="margin-top:10px;"><a href="{sub_url_esc}">Открыть ссылку подписки</a></p>
+    </div>
   </div>
 </body>
 </html>"""
