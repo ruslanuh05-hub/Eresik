@@ -25,24 +25,29 @@ from config import (
     PUBLIC_BASE_URL,
     UPSTREAM_SUB_URL,
     PROFILE_IMAGE,
+    CONNECT_IMAGE,
 )
 from tgemoji import E, tg
 from handlers.keyboards_common import back_btn, row_back_main
-from handlers.ui_nav import apply_screen_from_callback
 
 logger = logging.getLogger("jvpn-bot.cabinet")
 router = Router()
 
 
-async def _safe_edit_message(cb: CallbackQuery, text: str, reply_markup=None, parse_mode: str = "HTML"):
-    """Редактирование экрана: при фото — смена на приветственное изображение + подпись."""
-    await apply_screen_from_callback(
-        cb,
-        text=text,
-        reply_markup=reply_markup,
-        parse_mode=parse_mode,
-        photo_mode="subs",
-    )
+async def _send_subs_screen(cb: CallbackQuery, text: str, reply_markup, parse_mode: str = "HTML"):
+    """Гарантированно показать экран: отправка нового сообщения (работает при недоступности edit)."""
+    uid = cb.from_user.id
+    try:
+        if CONNECT_IMAGE.exists():
+            await cb.bot.send_photo(
+                uid, FSInputFile(CONNECT_IMAGE),
+                caption=text, parse_mode=parse_mode, reply_markup=reply_markup,
+            )
+        else:
+            await cb.bot.send_message(uid, text, parse_mode=parse_mode, reply_markup=reply_markup)
+    except Exception:
+        logger.exception("_send_subs_screen failed")
+        await cb.bot.send_message(uid, text, parse_mode=parse_mode, reply_markup=reply_markup)
 
 
 def device_selection_keyboard() -> InlineKeyboardMarkup:
@@ -547,7 +552,7 @@ async def show_my_subscriptions(cb: CallbackQuery):
                 ]
             )
 
-        await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
+        await _send_subs_screen(cb, text, kb, parse_mode="HTML")
     except Exception:
         logger.exception("show_my_subscriptions failed")
         try:
@@ -574,7 +579,7 @@ async def handle_subdev_step(cb: CallbackQuery):
             return
         await cb.answer()
         text = build_my_subscriptions_text(expires_at, platform=None)
-        await _safe_edit_message(cb, text, reply_markup=device_selection_keyboard(), parse_mode="HTML")
+        await _send_subs_screen(cb, text, device_selection_keyboard(), parse_mode="HTML")
         return
 
     platform = data.split(":", 1)[1]
@@ -595,7 +600,7 @@ async def handle_subdev_step(cb: CallbackQuery):
         await cb.answer()
         text = build_my_subscriptions_text(expires_at, platform=platform)
         kb = app_import_keyboard(platform, personal_sub_url)
-        await _safe_edit_message(cb, text, reply_markup=kb, parse_mode="HTML")
+        await _send_subs_screen(cb, text, kb, parse_mode="HTML")
     except Exception:
         logger.exception("handle_subdev_step failed")
         try:
