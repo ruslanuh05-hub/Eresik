@@ -174,21 +174,22 @@ async def subscription_handler(request: web.Request) -> web.Response:
             logger.exception("Bad subscription_expires_at type (token=%s): %s", token[:12], e)
             return web.Response(status=500, text="Bad subscription expires")
 
-        # Заменяем expire в subscription-userinfo на персональный срок
+        # Формируем userinfo для клиентов (Happ лучше читает это из HTTP-заголовка).
+        sub_userinfo = f"upload=0; download=0; total=1073741824000; expire={expire_unix}"
+
+        # Заменяем expire в subscription-userinfo на персональный срок в теле (fallback для клиентов, читающих body).
         lines = body.split("\n")
         new_lines = []
         userinfo_replaced = False
         for line in lines:
             if line.strip().startswith("# subscription-userinfo:"):
                 # Подставляем наш expire
-                new_lines.append(
-                    f"# subscription-userinfo: upload=0; download=0; total=1073741824000; expire={expire_unix}"
-                )
+                new_lines.append(f"# subscription-userinfo: {sub_userinfo}")
                 userinfo_replaced = True
                 continue
             new_lines.append(line)
         if not userinfo_replaced:
-            new_lines.insert(0, f"# subscription-userinfo: upload=0; download=0; total=1073741824000; expire={expire_unix}")
+            new_lines.insert(0, f"# subscription-userinfo: {sub_userinfo}")
             new_lines.insert(0, "")
 
         new_lines = _apply_subscription_profile_meta(new_lines)
@@ -199,7 +200,7 @@ async def subscription_handler(request: web.Request) -> web.Response:
         is_browser = ("mozilla" in user_agent) and ("happ" not in user_agent) and ("hiddify" not in user_agent) and ("v2raytun" not in user_agent)
         if is_browser:
             sub_url = str(request.url)
-            happ_link = f"happ://import/{sub_url}"
+            happ_link = f"happ://import/{urllib.parse.quote(sub_url, safe='')}"
             hiddify_link = f"hiddify://import/{sub_url}#JetVPN"
             v2raytun_link = f"v2raytun://import/{sub_url}"
             tg_id = sub.get("telegram_id")
@@ -272,7 +273,13 @@ async def subscription_handler(request: web.Request) -> web.Response:
         return web.Response(
             text=result,
             content_type="text/plain",
-            headers={"Cache-Control": "no-store"},
+            headers={
+                "Cache-Control": "no-store",
+                "subscription-userinfo": sub_userinfo,
+                "profile-title": SUB_PROFILE_TITLE,
+                "support-url": SUB_SUPPORT_URL,
+                "profile-web-page-url": SUB_SUPPORT_URL,
+            },
         )
     except Exception as e:
         logger.exception("subscription_handler failed (token=%s): %s", (token or "")[:12], e)
@@ -334,11 +341,12 @@ def _validate_subscription_url(u: str) -> bool:
 
 def _deep_link_for_app(app: str, sub_url: str) -> str:
     """Deep link для открытия приложения с импортом подписки."""
+    sub_url_encoded = urllib.parse.quote(sub_url, safe="")
     if app == "v2raytun":
         return f"v2raytun://import/{sub_url}"
     if app == "happ":
-        # happ://import/ не документирован; используем raw URL. Fallback — ручной импорт.
-        return f"happ://import/{sub_url}"
+        # Для Happ используем URL-encoded путь: так чаще корректно парсится import.
+        return f"happ://import/{sub_url_encoded}"
     if app == "hiddify":
         return f"hiddify://import/{sub_url}#JetVPN"
     raise ValueError(app)

@@ -34,8 +34,40 @@ router = Router()
 
 
 async def _send_subs_screen(cb: CallbackQuery, text: str, reply_markup, parse_mode: str = "HTML"):
-    """Гарантированно показать экран: только send_message (без фото, избегаем DOCUMENT_INVALID)."""
+    """
+    Показать экран подписок в том же сообщении.
+
+    Приоритет:
+    1) редактирование текущего сообщения (не плодим новые сообщения на «Назад»),
+    2) fallback на send_message, если edit невозможен.
+    """
     uid = cb.from_user.id
+    msg = cb.message
+
+    # 1) Пытаемся обновить текущее сообщение.
+    if msg:
+        for use_markup in (True, False):
+            for pm in (parse_mode, None):
+                try:
+                    kb = reply_markup if use_markup else None
+                    if getattr(msg, "caption", None) is not None:
+                        if pm:
+                            await msg.edit_caption(caption=text, parse_mode=pm, reply_markup=kb)
+                        else:
+                            await msg.edit_caption(caption=text, reply_markup=kb)
+                    else:
+                        if pm:
+                            await msg.edit_text(text, parse_mode=pm, reply_markup=kb)
+                        else:
+                            await msg.edit_text(text, reply_markup=kb)
+                    return
+                except Exception as e:
+                    if use_markup or pm:
+                        logger.debug("_send_subs_screen edit retry (markup=%s, pm=%s): %s", use_markup, pm, e)
+                    else:
+                        logger.debug("_send_subs_screen edit failed, switch to send_message: %s", e)
+
+    # 2) Fallback: отправляем новым сообщением.
     for use_markup in (True, False):
         for pm in (parse_mode, None):
             try:
@@ -50,25 +82,26 @@ async def _send_subs_screen(cb: CallbackQuery, text: str, reply_markup, parse_mo
                     raise
 
 
-def _plain_back_btn(callback_data: str, text: str = "← Назад") -> InlineKeyboardButton:
+def _plain_back_btn(callback_data: str, text: str = "Назад⬅️") -> InlineKeyboardButton:
     """Кнопка «Назад» без custom_emoji — избегаем DOCUMENT_INVALID."""
     return InlineKeyboardButton(text=text, callback_data=callback_data)
 
 
-def device_selection_keyboard() -> InlineKeyboardMarkup:
+def device_selection_keyboard(has_sub_url: bool = False) -> InlineKeyboardMarkup:
     """Шаг 1: выбор устройства (Android | iOS / ПК)."""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="🤖 Android", callback_data="subdev:android"),
-                InlineKeyboardButton(text="🍏 iOS", callback_data="subdev:ios"),
-            ],
-            [
-                InlineKeyboardButton(text="💻 ПК", callback_data="subdev:pc"),
-            ],
-            [_plain_back_btn("connect_menu", "← Назад")],
-        ]
-    )
+    rows = [
+        [
+            InlineKeyboardButton(text="🤖 Android", callback_data="subdev:android"),
+            InlineKeyboardButton(text="🍏 iOS", callback_data="subdev:ios"),
+        ],
+        [
+            InlineKeyboardButton(text="💻 ПК", callback_data="subdev:pc"),
+        ],
+    ]
+    if has_sub_url:
+        rows.append([InlineKeyboardButton(text="📋 Скопировать ссылку", callback_data="sub:copy_link")])
+    rows.append([_plain_back_btn("connect_menu", "Назад⬅️")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def _bridge_url(app: str, personal_sub_url: str) -> str:
@@ -147,6 +180,31 @@ def cabinet_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def my_subscriptions_actions_keyboard(is_active: bool) -> InlineKeyboardMarkup:
+    """Кнопки для экрана «Мои подписки» в требуемом порядке."""
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text="Купить подписку 🎁",
+                callback_data="buy_sub:subs",
+                icon_custom_emoji_id=E.GIFT,
+            )
+        ]
+    ]
+    if is_active:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="Продлить",
+                    callback_data="renew_sub",
+                    icon_custom_emoji_id=E.MONEY,
+                )
+            ]
+        )
+    rows.append([back_btn(callback_data="connect_menu", text="Назад ⬅️")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def _format_expires(ts: int | None) -> str:
     if not ts:
         return "—"
@@ -191,12 +249,12 @@ def build_my_subscriptions_text(
 ) -> str:
     """Текст экрана «Мои подписки» (без URL)."""
     base = (
-        "📱 <b>Мои подписки</b>\n\n"
+        f'{tg(E.PARTY, "🎉")} <b>Мои подписки</b>\n\n'
         f'{tg(E.CALENDAR, "🗓️")} Действует до: {_format_date(expires_at)}\n'
         f'{tg(E.CLOCK, "🕒")} Осталось: {_format_expires(expires_at)}\n\n'
     )
     if platform is None:
-        return base + "Выберите устройство:"
+        return base + "Управляйте подпиской кнопками ниже:"
     return (
         base
         + f"{_platform_title(platform)}\n\n"
@@ -498,25 +556,14 @@ async def cmd_sub(msg: Message):
     now = int(time_module.time())
     if token and expires_at and expires_at > now and personal_sub_url:
         text = build_my_subscriptions_text(expires_at, platform=None)
-        kb = device_selection_keyboard()
+        kb = my_subscriptions_actions_keyboard(is_active=True)
     else:
         text = (
-            "📱 <b>Мои подписки</b>\n\n"
+            f'{tg(E.PARTY, "🎉")} <b>Мои подписки</b>\n\n'
             "Подписка не активна.\n\n"
             "Купите подписку в разделе «Купить подписку»."
         )
-        kb = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="Купить подписку",
-                        callback_data="buy_sub:subs",
-                        icon_custom_emoji_id=E.INSTRUCTION_BOOKMARK,
-                    ),
-                ],
-                [back_btn(callback_data="connect_menu", text="Назад")],
-            ]
-        )
+        kb = my_subscriptions_actions_keyboard(is_active=False)
 
     await msg.answer(text, parse_mode="HTML", reply_markup=kb)
 
@@ -534,25 +581,14 @@ async def show_my_subscriptions(cb: CallbackQuery):
         now = int(time_module.time())
         if token and expires_at and expires_at > now and personal_sub_url:
             text = build_my_subscriptions_text(expires_at, platform=None)
-            kb = device_selection_keyboard()
+            kb = my_subscriptions_actions_keyboard(is_active=True)
         else:
             text = (
-                "📱 <b>Мои подписки</b>\n\n"
+                f'{tg(E.PARTY, "🎉")} <b>Мои подписки</b>\n\n'
                 "Подписка не активна.\n\n"
                 "Купите подписку в разделе «Купить подписку»."
             )
-            kb = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text="Купить подписку",
-                            callback_data="buy_sub:subs",
-                            icon_custom_emoji_id=E.INSTRUCTION_BOOKMARK,
-                        ),
-                    ],
-                    [back_btn(callback_data="connect_menu", text="Назад")],
-                ]
-            )
+            kb = my_subscriptions_actions_keyboard(is_active=False)
 
         await _send_subs_screen(cb, text, kb, parse_mode="HTML")
     except Exception:
@@ -581,7 +617,7 @@ async def handle_subdev_step(cb: CallbackQuery):
             return
         await cb.answer()
         text = build_my_subscriptions_text(expires_at, platform=None)
-        await _send_subs_screen(cb, text, device_selection_keyboard(), parse_mode="HTML")
+        await _send_subs_screen(cb, text, device_selection_keyboard(has_sub_url=True), parse_mode="HTML")
         return
 
     platform = data.split(":", 1)[1]
@@ -610,5 +646,29 @@ async def handle_subdev_step(cb: CallbackQuery):
                 cb.from_user.id,
                 "Не удалось открыть экран. Проверьте, что подписка активна, и попробуйте /sub.",
             )
+        except Exception:
+            pass
+
+
+@router.callback_query(F.data == "sub:copy_link")
+async def copy_subscription_link(cb: CallbackQuery):
+    """Отправить персональную ссылку подписки для копирования."""
+    await cb.answer()
+    try:
+        personal_sub_url = await _sub_url_for_user(cb.from_user.id)
+        if not personal_sub_url:
+            await cb.answer("Подписка не активна", show_alert=True)
+            return
+        await cb.bot.send_message(
+            cb.from_user.id,
+            "📋 <b>Ссылка для подключения</b>\n\n"
+            "Скопируйте ссылку ниже:\n"
+            f"<code>{escape(personal_sub_url)}</code>",
+            parse_mode="HTML",
+        )
+    except Exception:
+        logger.exception("copy_subscription_link failed")
+        try:
+            await cb.bot.send_message(cb.from_user.id, "Не удалось получить ссылку. Попробуйте позже.")
         except Exception:
             pass

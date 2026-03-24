@@ -10,6 +10,7 @@ from aiogram.fsm.state import State, StatesGroup
 from database import get_or_create_user, add_payment, add_balance
 from freekassa import create_payment_url
 from config import FREKASSA_SHOP_ID, PUBLIC_BASE_URL, ADMIN_IDS
+from tgemoji import E, tg
 from handlers.keyboards_common import back_btn, row_back_main
 from handlers.ui_nav import apply_screen_from_message
 
@@ -44,13 +45,19 @@ def topup_keyboard(is_admin: bool = False):
             InlineKeyboardButton(text=f"{amt} ₽", callback_data=f"topup:{amt}")
             for amt, _ in [amounts[2], amounts[3]]
         ],
-        [InlineKeyboardButton(text="✏️ Своя сумма", callback_data="topup:custom")],
+        [
+            InlineKeyboardButton(
+                text="Своя сумма 🏷",
+                callback_data="topup:custom",
+                icon_custom_emoji_id=E.TAG,
+            )
+        ],
     ]
 
     if is_admin:
         rows.append([InlineKeyboardButton(text="🧪 Тестовая оплата 100 ₽", callback_data="topup:test:100")])
 
-    rows.append([back_btn(callback_data="connect_menu", text="Назад")])
+    rows.append([back_btn(callback_data="connect_menu", text="Назад ⬅️")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -62,7 +69,7 @@ async def topup_start(cb: CallbackQuery, state: FSMContext):
     is_admin = cb.from_user.id in ADMIN_IDS
 
     text = (
-        f"💳 <b>Пополнение баланса</b>\n\n"
+        f'{tg(E.MONEY, "🪙")} <b>Пополнение баланса</b>\n\n'
         f"Текущий баланс: <b>{balance:.2f} ₽</b>\n\n"
         "Выберите сумму или введите свою (минимум 50 ₽):"
     )
@@ -83,9 +90,9 @@ async def topup_amount(cb: CallbackQuery, state: FSMContext):
         await state.set_state(TopUpStates.waiting_amount)
         await _safe_edit_message(
             cb.message,
-            "✏️ Введите сумму пополнения (минимум 50 ₽):",
+            f'{tg(E.TAG, "🏷")} Введите сумму пополнения (минимум 50 ₽):',
             reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[[back_btn(callback_data="topup", text="Назад")]]
+                inline_keyboard=[[back_btn(callback_data="topup", text="Назад ⬅️")]]
             ),
             parse_mode="HTML",
         )
@@ -179,7 +186,7 @@ async def process_topup(cb: CallbackQuery, telegram_id: int, amount: float):
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🔗 Перейти к оплате", url=url)],
-            [back_btn(callback_data="topup", text="Назад")],
+            [back_btn(callback_data="topup", text="Назад ⬅️")],
         ]
     )
     await _safe_edit_message(
@@ -211,7 +218,7 @@ async def do_send_payment_link(msg: Message, telegram_id: int, amount: float):
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🔗 Перейти к оплате", url=url)],
-            [back_btn(callback_data="topup", text="Назад")],
+            [back_btn(callback_data="topup", text="Назад ⬅️")],
         ]
     )
     await msg.answer(

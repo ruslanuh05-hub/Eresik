@@ -106,16 +106,16 @@ def connect_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Моя подписка",
+                    text="Мои подписки 🎉",
                     callback_data="my_subscriptions",
-                    icon_custom_emoji_id=E.CALENDAR,
+                    icon_custom_emoji_id=E.PARTY,
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Купить подписку",
+                    text="Купить подписку 🎁",
                     callback_data="buy_sub",
-                    icon_custom_emoji_id=E.INSTRUCTION_BOOKMARK,
+                    icon_custom_emoji_id=E.GIFT,
                 ),
             ],
             [
@@ -185,7 +185,7 @@ async def back_to_main(cb: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "connect_menu")
 async def show_connect_menu(cb: CallbackQuery):
-    text = f'{tg(E.MOLNY, "⚡")} <b>Подключиться</b>\n\nВыберите действие:'
+    text = f'{tg(E.MOLNY, "⚡️")} <b>Подключиться</b>\n\nВыберите действие {tg(E.ARROW_DOWN, "⬇️")}'
     kb = connect_keyboard()
     await apply_screen_from_callback(
         cb,
@@ -205,7 +205,7 @@ async def show_referrals(cb: CallbackQuery):
     bot_username = (await cb.bot.me()).username
     invite_link = f"https://t.me/{bot_username}?start={code}" if bot_username else "Ссылка недоступна"
     text = (
-        f'{tg(E.REFERRAL, "👥")} <b>Реферальная система</b>\n\n'
+        f'{tg(E.MONEY, "🪙")} <b>Реферальная система</b>\n\n'
         "Приглашайте друзей и получайте бонусы.\n\n"
         f"Ваш реферальный код: <code>{escape(code)}</code>\n"
         f"Ваша ссылка: <code>{escape(invite_link)}</code>\n\n"
@@ -219,35 +219,35 @@ async def show_referrals(cb: CallbackQuery):
 async def show_instruction(cb: CallbackQuery):
     """Инструкция по подключению (если вызовут по старой ссылке)."""
     text = (
-        f'{tg(E.INSTRUCTION_BOOKMARK, "🏷️")} <b>Инструкция по подключению</b>\n\n'
+        f'{tg(E.INSTRUCTION_BOOKMARK, "🔗")} <b>Инструкция по подключению</b>\n\n'
         "Выберите платформу, и я отправлю видео-инструкцию:"
     )
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Android",
+                    text="⚡️ Android",
                     callback_data="instruction:android",
-                    icon_custom_emoji_id=E.ANDROID_ROBOT,
+                    icon_custom_emoji_id=E.MOLNY,
                 ),
                 InlineKeyboardButton(
-                    text="iOS",
+                    text="⚡️ iOS",
                     callback_data="instruction:ios",
-                    icon_custom_emoji_id=E.IOS_APPLE,
+                    icon_custom_emoji_id=E.MOLNY,
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Android TV",
+                    text="⚡️ Android TV",
                     callback_data="instruction:android_tv",
-                    icon_custom_emoji_id=E.TV,
+                    icon_custom_emoji_id=E.MOLNY,
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="ПК",
+                    text="⚡️ ПК",
                     callback_data="instruction:pc",
-                    icon_custom_emoji_id=E.PC_LAPTOP,
+                    icon_custom_emoji_id=E.MOLNY,
                 )
             ],
             row_back_main(),

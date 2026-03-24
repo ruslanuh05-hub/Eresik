@@ -40,7 +40,7 @@ async def plans_keyboard(back_callback: str = "connect_menu"):
         ]
         for p in plans
     ]
-    rows.append([back_btn(callback_data=back_callback, text="Назад")])
+    rows.append([back_btn(callback_data=back_callback, text="Назад⬅️")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
