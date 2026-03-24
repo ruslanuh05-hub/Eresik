@@ -54,7 +54,12 @@ async def buy_sub_start(cb: CallbackQuery):
     text = f"{title}\n\n" f"Ваш баланс: <b>{balance:.2f} ₽</b>\n\n" "Выберите тариф:"
     for p in plans:
         text += f"\n• {escape(p['title'])} — {p['price']} ₽"
-    back_callback = "my_subscriptions" if cb.data in ("buy_sub:subs", "renew_sub") else "connect_menu"
+    if cb.data == "renew_sub":
+        back_callback = "cabinet"
+    elif cb.data == "buy_sub:subs":
+        back_callback = "my_subscriptions"
+    else:
+        back_callback = "connect_menu"
     await _safe_edit_message(
         cb.message,
         text,

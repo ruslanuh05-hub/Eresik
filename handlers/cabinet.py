@@ -62,6 +62,9 @@ async def _send_subs_screen(cb: CallbackQuery, text: str, reply_markup, parse_mo
                             await msg.edit_text(text, reply_markup=kb)
                     return
                 except Exception as e:
+                    # Это не ошибка: экран уже такой же, не уходим в fallback без HTML.
+                    if "message is not modified" in str(e).lower():
+                        return
                     if use_markup or pm:
                         logger.debug("_send_subs_screen edit retry (markup=%s, pm=%s): %s", use_markup, pm, e)
                     else:
@@ -75,6 +78,8 @@ async def _send_subs_screen(cb: CallbackQuery, text: str, reply_markup, parse_mo
                 await cb.bot.send_message(uid, text, parse_mode=pm, reply_markup=kb)
                 return
             except Exception as e:
+                if "message is not modified" in str(e).lower():
+                    return
                 if use_markup or pm:
                     logger.debug("_send_subs_screen retry (markup=%s, pm=%s): %s", use_markup, pm, e)
                 else:

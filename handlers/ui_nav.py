@@ -127,7 +127,9 @@ async def apply_screen_from_callback(
                 reply_markup=reply_markup,
             )
             return
-        except Exception:
+        except Exception as e:
+            if "message is not modified" in str(e).lower():
+                return
             logger.debug("apply_screen: edit_media failed", exc_info=True)
 
     try:
@@ -142,7 +144,9 @@ async def apply_screen_from_callback(
                 await msg.edit_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
             else:
                 await msg.edit_text(text, reply_markup=reply_markup)
-    except Exception:
+    except Exception as e:
+        if "message is not modified" in str(e).lower():
+            return
         logger.debug("apply_screen: edit caption/text failed", exc_info=True)
         # При InaccessibleMessage `msg.answer()` может не сработать.
         chat_id = None
