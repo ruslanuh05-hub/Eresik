@@ -5,7 +5,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from tgemoji import E
 
 
-def back_btn(*, callback_data: str = "main_menu", text: str = "Назад ⬅️") -> InlineKeyboardButton:
+def back_btn(*, callback_data: str = "main_menu", text: str = "Назад") -> InlineKeyboardButton:
     return InlineKeyboardButton(
         text=text,
         callback_data=callback_data,
@@ -14,7 +14,7 @@ def back_btn(*, callback_data: str = "main_menu", text: str = "Назад ⬅️
 
 
 def row_back_main() -> list[InlineKeyboardButton]:
-    return [back_btn(callback_data="main_menu", text="Назад ⬅️")]
+    return [back_btn(callback_data="main_menu", text="Назад")]
 
 
 def markup_back_main_only() -> InlineKeyboardMarkup:

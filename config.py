@@ -16,7 +16,7 @@ PUBLIC_TG_URL = os.getenv("PUBLIC_TG_URL", "https://t.me/2helper")
 PUBLIC_SITE_URL = os.getenv("PUBLIC_SITE_URL", "https://sub1.jetstoreapp.ru/v2raytun-sub")
 # Отображаемое имя бота в юридических текстах (как в Telegram)
 PUBLIC_BOT_DISPLAY = os.getenv("PUBLIC_BOT_DISPLAY", "@jetvpnpro_bot")
-SUPPORT_USERNAME = os.getenv("SUPPORT_USERNAME", "@JetStoreHelper")
+SUPPORT_USERNAME = os.getenv("SUPPORT_USERNAME", "@JetHelper")
 # Юридические документы (Telegraph)
 PRIVACY_POLICY_URL = os.getenv(
     "PRIVACY_POLICY_URL",

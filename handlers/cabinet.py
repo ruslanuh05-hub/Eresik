@@ -87,9 +87,9 @@ async def _send_subs_screen(cb: CallbackQuery, text: str, reply_markup, parse_mo
                     raise
 
 
-def _plain_back_btn(callback_data: str, text: str = "Назад⬅️") -> InlineKeyboardButton:
-    """Кнопка «Назад» без custom_emoji — избегаем DOCUMENT_INVALID."""
-    return InlineKeyboardButton(text=text, callback_data=callback_data)
+def _plain_back_btn(callback_data: str, text: str = "Назад") -> InlineKeyboardButton:
+    """Кнопка «Назад» с premium-стрелкой."""
+    return InlineKeyboardButton(text=text, callback_data=callback_data, icon_custom_emoji_id=E.BACKARROW)
 
 
 def device_selection_keyboard(has_sub_url: bool = False) -> InlineKeyboardMarkup:
@@ -105,7 +105,7 @@ def device_selection_keyboard(has_sub_url: bool = False) -> InlineKeyboardMarkup
     ]
     if has_sub_url:
         rows.append([InlineKeyboardButton(text="📋 Скопировать ссылку", callback_data="sub:copy_link")])
-    rows.append([_plain_back_btn("buy_sub", "Назад ⬅️")])
+    rows.append([_plain_back_btn("buy_sub", "Назад")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -132,7 +132,7 @@ def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardM
     """
     if not personal_sub_url:
         return InlineKeyboardMarkup(
-            inline_keyboard=[[_plain_back_btn("subdev:menu", "← К устройствам")]],
+            inline_keyboard=[[_plain_back_btn("subdev:menu", "К устройствам")]],
         )
 
     rows = []
@@ -158,7 +158,7 @@ def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardM
         btns = [_url_btn("💻 Hiddify", "hiddify"), _url_btn("📱 Happ", "happ")]
         if any(btns):
             rows.append([b for b in btns if b is not None])
-    rows.append([_plain_back_btn("subdev:menu", "← К устройствам")])
+    rows.append([_plain_back_btn("subdev:menu", "К устройствам")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -190,7 +190,7 @@ def my_subscriptions_actions_keyboard(is_active: bool) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
         [
             InlineKeyboardButton(
-                text="Купить подписку 🎁",
+                text="Купить подписку",
                 callback_data="buy_sub:subs",
                 icon_custom_emoji_id=E.GIFT,
             )
@@ -206,7 +206,7 @@ def my_subscriptions_actions_keyboard(is_active: bool) -> InlineKeyboardMarkup:
                 )
             ]
         )
-    rows.append([back_btn(callback_data="connect_menu", text="Назад ⬅️")])
+    rows.append([back_btn(callback_data="connect_menu", text="Назад")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -254,7 +254,7 @@ def build_my_subscriptions_text(
 ) -> str:
     """Текст экрана «Мои подписки» (без URL)."""
     base = (
-        "🎉 <b>Мои подписки</b>\n\n"
+        f'{tg(E.PARTY, "🎉")} <b>Мои подписки</b>\n\n'
         f"🗓️ Действует до: {_format_date(expires_at)}\n"
         f"🕒 Осталось: {_format_expires(expires_at)}\n\n"
     )
@@ -564,7 +564,7 @@ async def cmd_sub(msg: Message):
         kb = my_subscriptions_actions_keyboard(is_active=True)
     else:
         text = (
-            "🎉 <b>Мои подписки</b>\n\n"
+            f'{tg(E.PARTY, "🎉")} <b>Мои подписки</b>\n\n'
             "Подписка не активна.\n\n"
             "Купите подписку в разделе «Купить подписку»."
         )
@@ -589,7 +589,7 @@ async def show_my_subscriptions(cb: CallbackQuery):
             kb = my_subscriptions_actions_keyboard(is_active=True)
         else:
             text = (
-                "🎉 <b>Мои подписки</b>\n\n"
+                f'{tg(E.PARTY, "🎉")} <b>Мои подписки</b>\n\n'
                 "Подписка не активна.\n\n"
                 "Купите подписку в разделе «Купить подписку»."
             )

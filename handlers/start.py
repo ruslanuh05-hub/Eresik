@@ -93,7 +93,7 @@ def main_menu_inline() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="Поддержка",
                     callback_data="support",
-                    icon_custom_emoji_id=E.HELP,
+                    icon_custom_emoji_id=E.SUPPORT_BOT,
                 ),
             ],
         ]
@@ -106,14 +106,14 @@ def connect_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Мои подписки 🎉",
+                    text="Мои подписки",
                     callback_data="my_subscriptions",
                     icon_custom_emoji_id=E.PARTY,
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Купить подписку 🎁",
+                    text="Купить подписку",
                     callback_data="buy_sub",
                     icon_custom_emoji_id=E.GIFT,
                 ),
@@ -227,26 +227,26 @@ async def show_instruction(cb: CallbackQuery):
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="⚡️ Android",
+                    text="Android",
                     callback_data="instruction:android",
                     icon_custom_emoji_id=E.MOLNY,
                 ),
                 InlineKeyboardButton(
-                    text="⚡️ iOS",
+                    text="iOS",
                     callback_data="instruction:ios",
                     icon_custom_emoji_id=E.MOLNY,
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="⚡️ Android TV",
+                    text="Android TV",
                     callback_data="instruction:android_tv",
                     icon_custom_emoji_id=E.MOLNY,
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="⚡️ ПК",
+                    text="ПК",
                     callback_data="instruction:pc",
                     icon_custom_emoji_id=E.MOLNY,
                 )
@@ -298,7 +298,7 @@ async def show_support(cb: CallbackQuery):
     )
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="✉️ Написать в поддержку", url=support_url)],
+            [InlineKeyboardButton(text=f"{SUPPORT_USERNAME}", url=support_url, icon_custom_emoji_id=E.SUPPORT_BOT)],
             row_back_main(),
         ]
     )
@@ -315,9 +315,9 @@ async def show_about(cb: CallbackQuery):
     )
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🔒 Политика конфиденциальности", url=PRIVACY_POLICY_URL)],
-            [InlineKeyboardButton(text="📄 Пользовательское соглашение", url=TERMS_URL)],
-            [InlineKeyboardButton(text="📇 Контактная информация", url=CONTACT_INFO_URL)],
+            [InlineKeyboardButton(text="Политика конфиденциальности", url=PRIVACY_POLICY_URL, icon_custom_emoji_id=E.DOC)],
+            [InlineKeyboardButton(text="Пользовательское соглашение", url=TERMS_URL, icon_custom_emoji_id=E.DOC)],
+            [InlineKeyboardButton(text="Контактная информация", url=CONTACT_INFO_URL, icon_custom_emoji_id=E.DOC)],
             row_back_main(),
         ]
     )
