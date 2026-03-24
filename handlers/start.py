@@ -1,11 +1,13 @@
 """Команды /start и главное меню."""
 import logging
+import random
 from html import escape
 
 from aiogram import Router, F
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     Message,
     CallbackQuery,
@@ -15,7 +17,7 @@ from aiogram.types import (
     ReplyKeyboardRemove,
 )
 
-from database import get_or_create_user
+from database import apply_referral_bonus, get_or_create_user, get_user_by_telegram_id
 from tgemoji import E, tg
 from config import (
     WELCOME_IMAGE,
@@ -38,6 +40,42 @@ from handlers.ui_nav import apply_screen_from_callback
 logger = logging.getLogger("jvpn-bot.start")
 
 router = Router()
+
+
+class ReferralCaptcha(StatesGroup):
+    waiting = State()
+
+
+# Эмодзи для проверки (только при первом /start по ссылке ref_*)
+_REF_CAPTCHA_EMOJIS: list[tuple[str, str]] = [
+    (E.PARTY, "🎉"),
+    (E.GIFT, "🎁"),
+    (E.MOLNY, "⚡️"),
+    (E.HEART, "💜"),
+]
+
+
+def _build_ref_captcha_keyboard() -> tuple[InlineKeyboardMarkup, str, str]:
+    """Клавиатура 2×2: ровно один совпадает с подсказкой в тексте."""
+    correct_id, fb = random.choice(_REF_CAPTCHA_EMOJIS)
+    order = _REF_CAPTCHA_EMOJIS.copy()
+    random.shuffle(order)
+    rows: list[list[InlineKeyboardButton]] = []
+    pair: list[InlineKeyboardButton] = []
+    for eid, _ in order:
+        pair.append(
+            InlineKeyboardButton(
+                text="·",
+                callback_data=f"refpick:{eid}",
+                icon_custom_emoji_id=eid,
+            )
+        )
+        if len(pair) == 2:
+            rows.append(pair)
+            pair = []
+    if pair:
+        rows.append(pair)
+    return InlineKeyboardMarkup(inline_keyboard=rows), correct_id, fb
 
 
 async def _strip_reply_keyboard(bot, chat_id: int) -> None:
@@ -118,10 +156,17 @@ def connect_keyboard() -> InlineKeyboardMarkup:
                     icon_custom_emoji_id=E.GIFT,
                 ),
             ],
-            [
+            [                
                 InlineKeyboardButton(
                     text="Пополнить баланс",
                     callback_data="topup",
+                    icon_custom_emoji_id=E.MONEY,
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Реферальная программа",
+                    callback_data="referrals",
                     icon_custom_emoji_id=E.MONEY,
                 ),
             ],
@@ -137,28 +182,119 @@ def _welcome_text() -> str:
     )
 
 
-async def _send_welcome(msg: Message) -> None:
-    """Приветствие: снимаем reply-клавиатуру, одно сообщение с inline-меню (+ фото в caption при наличии)."""
-    await _strip_reply_keyboard(msg.bot, msg.chat.id)
+async def _deliver_welcome(bot, chat_id: int) -> None:
+    """Отправить главное меню (как после /start)."""
+    await _strip_reply_keyboard(bot, chat_id)
     text = _welcome_text()
     kb = main_menu_inline()
     if WELCOME_IMAGE.exists():
         photo = FSInputFile(WELCOME_IMAGE)
-        await msg.answer_photo(
+        await bot.send_photo(
+            chat_id,
             photo,
             caption=text,
             parse_mode=ParseMode.HTML,
             reply_markup=kb,
         )
     else:
-        await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=kb)
+        await bot.send_message(chat_id, text, parse_mode=ParseMode.HTML, reply_markup=kb)
+
+
+async def _send_welcome(msg: Message) -> None:
+    """Приветствие: снимаем reply-клавиатуру, одно сообщение с inline-меню (+ фото в caption при наличии)."""
+    await _deliver_welcome(msg.bot, msg.chat.id)
 
 
 @router.message(CommandStart())
-async def cmd_start(msg: Message, state: FSMContext):
+async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
     await state.clear()
+    existed_before = await get_user_by_telegram_id(msg.from_user.id)
     await get_or_create_user(msg.from_user.id, msg.from_user.username)
+
+    raw = (command.args or "").strip() if command else ""
+    if raw.startswith("ref_"):
+        try:
+            referrer_id = int(raw[4:])
+        except ValueError:
+            await _send_welcome(msg)
+            return
+        if referrer_id == msg.from_user.id:
+            await _send_welcome(msg)
+            return
+        # Реферальный бонус — только для нового пользователя (первый вход по ссылке).
+        if existed_before:
+            await msg.answer(
+                "Вы уже были зарегистрированы ранее, поэтому реферальный бонус недоступен.",
+                parse_mode=ParseMode.HTML,
+            )
+            await _send_welcome(msg)
+            return
+        user = await get_or_create_user(msg.from_user.id, msg.from_user.username)
+        if int(user.get("referral_bonus_claimed") or 0):
+            await _send_welcome(msg)
+            return
+        await state.set_state(ReferralCaptcha.waiting)
+        kb, correct_id, fb = _build_ref_captcha_keyboard()
+        await state.update_data(referrer_id=referrer_id, correct_emoji_id=str(correct_id))
+        await msg.answer(
+            f'{tg(E.SUPPORT_BOT, "🤖")} <b>Быстрая проверка</b>\n\n'
+            f"Нажмите на такой же эмодзи: {tg(correct_id, fb)}\n\n"
+            "<i>Нужно только при переходе по реферальной ссылке.</i>",
+            reply_markup=kb,
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
     await _send_welcome(msg)
+
+
+@router.callback_query(ReferralCaptcha.waiting, F.data.startswith("refpick:"))
+async def referral_captcha_pick(cb: CallbackQuery, state: FSMContext):
+    picked = (cb.data or "").split(":", 1)[1].strip()
+    data = await state.get_data()
+    correct = str(data.get("correct_emoji_id", ""))
+    referrer_id = int(data.get("referrer_id") or 0)
+    if not picked or not correct or referrer_id <= 0:
+        await state.clear()
+        await cb.answer()
+        await _deliver_welcome(cb.bot, cb.message.chat.id)
+        return
+    if picked != correct:
+        await cb.answer("Неверно. Попробуйте ещё раз.", show_alert=True)
+        kb, new_correct_id, fb = _build_ref_captcha_keyboard()
+        await state.update_data(correct_emoji_id=str(new_correct_id))
+        try:
+            await cb.message.edit_text(
+                f'{tg(E.SUPPORT_BOT, "🤖")} <b>Быстрая проверка</b>\n\n'
+                f"Нажмите на такой же эмодзи: {tg(new_correct_id, fb)}\n\n"
+                "<i>Нужно только при переходе по реферальной ссылке.</i>",
+                reply_markup=kb,
+                parse_mode=ParseMode.HTML,
+            )
+        except Exception:
+            logger.debug("referral_captcha_pick: edit_text failed", exc_info=True)
+        return
+
+    await cb.answer()
+    await state.clear()
+    try:
+        ok = await apply_referral_bonus(cb.from_user.id, referrer_id)
+    except Exception:
+        logger.exception("apply_referral_bonus failed")
+        ok = False
+    if ok:
+        await cb.message.answer(
+            "✅ <b>Готово!</b>\n\n"
+            "Вам начислено <b>+3 дня</b> подписки.\n"
+            "Вашему другу — <b>+6 дней</b>.",
+            parse_mode=ParseMode.HTML,
+        )
+    else:
+        await cb.message.answer(
+            "Реферальный бонус уже был получен ранее или сейчас недоступен.",
+            parse_mode=ParseMode.HTML,
+        )
+    await _deliver_welcome(cb.bot, cb.message.chat.id)
 
 
 @router.callback_query(F.data == "main_menu")
@@ -207,10 +343,12 @@ async def show_referrals(cb: CallbackQuery):
     invite_link = f"https://t.me/{bot_username}?start={code}" if bot_username else "Ссылка недоступна"
     text = (
         f'{tg(E.MONEY, "🪙")} <b>Реферальная система</b>\n\n'
-        "Приглашайте друзей и получайте бонусы.\n\n"
-        f"Ваш реферальный код: <code>{escape(code)}</code>\n"
+        "Приглашайте друзей по ссылке ниже.\n\n"
+        "Когда друг <b>впервые</b> зайдёт по вашей ссылке и пройдёт короткую проверку — "
+        "ему будет начислено <b>+3 дня</b> подписки, а вам — <b>+6 дней</b>.\n\n"
+        f"Ваш код: <code>{escape(code)}</code>\n"
         f"Ваша ссылка: <code>{escape(invite_link)}</code>\n\n"
-        "Отправьте ссылку другу – и получите награду после его первой оплаты."
+        "<i>Проверка нужна только при переходе по реферальной ссылке. Обычный /start без ссылки — без проверки.</i>"
     )
     await _safe_edit_message(cb, text, reply_markup=markup_back_main_only(), parse_mode="HTML")
     await cb.answer()

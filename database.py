@@ -52,6 +52,7 @@ async def _init_pg() -> None:
                 balance DOUBLE PRECISION NOT NULL DEFAULT 0,
                 subscription_expires_at BIGINT,
                 subscription_token TEXT,
+                referral_bonus_claimed INTEGER NOT NULL DEFAULT 0,
                 created_at BIGINT NOT NULL,
                 updated_at BIGINT NOT NULL
             )
@@ -98,6 +99,9 @@ async def _init_pg() -> None:
                 f'INSERT INTO "{SETTINGS_TABLE}" (key, value, updated_at) VALUES ($1, $2, $3) ON CONFLICT (key) DO NOTHING',
                 "price_per_day", str(DEFAULT_PRICE_PER_DAY), _now(),
             )
+        await conn.execute(
+            f'ALTER TABLE "{USERS_TABLE}" ADD COLUMN IF NOT EXISTS referral_bonus_claimed INTEGER NOT NULL DEFAULT 0',
+        )
     finally:
         await conn.close()
 
@@ -113,6 +117,7 @@ async def _init_sqlite() -> None:
                 balance REAL NOT NULL DEFAULT 0,
                 subscription_expires_at INTEGER,
                 subscription_token TEXT,
+                referral_bonus_claimed INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
             )
@@ -153,6 +158,12 @@ async def _init_sqlite() -> None:
                 f"INSERT OR IGNORE INTO {SETTINGS_TABLE} (key, value, updated_at) VALUES (?, ?, ?)",
                 ("price_per_day", str(DEFAULT_PRICE_PER_DAY), _now()),
             )
+        cur_cols = await db.execute(f"PRAGMA table_info({USERS_TABLE})")
+        cols = [r[1] for r in await cur_cols.fetchall()]
+        if "referral_bonus_claimed" not in cols:
+            await db.execute(
+                f"ALTER TABLE {USERS_TABLE} ADD COLUMN referral_bonus_claimed INTEGER NOT NULL DEFAULT 0"
+            )
         await db.commit()
 
 
@@ -175,8 +186,8 @@ async def _get_or_create_user_pg(telegram_id: int, username: str | None) -> dict
         token = _create_token()
         await conn.execute(
             f'''INSERT INTO "{USERS_TABLE}" (telegram_id, username, nickname, balance, subscription_expires_at,
-               subscription_token, created_at, updated_at)
-               VALUES ($1, $2, $3, 0, NULL, $4, $5, $5)''',
+               subscription_token, referral_bonus_claimed, created_at, updated_at)
+               VALUES ($1, $2, $3, 0, NULL, $4, 0, $5, $5)''',
             telegram_id, username or "", nickname, token, now,
         )
     finally:
@@ -197,8 +208,8 @@ async def _get_or_create_user_sqlite(telegram_id: int, username: str | None) -> 
         token = _create_token()
         await db.execute(
             f"""INSERT INTO {USERS_TABLE} (telegram_id, username, nickname, balance, subscription_expires_at,
-               subscription_token, created_at, updated_at)
-               VALUES (?, ?, ?, 0, NULL, ?, ?, ?)""",
+               subscription_token, referral_bonus_claimed, created_at, updated_at)
+               VALUES (?, ?, ?, 0, NULL, ?, 0, ?, ?)""",
             (telegram_id, username or "", nickname, token, now, now),
         )
         await db.commit()
@@ -207,7 +218,7 @@ async def _get_or_create_user_sqlite(telegram_id: int, username: str | None) -> 
 
 async def update_user(telegram_id: int, **kwargs) -> None:
     """Обновить поля пользователя."""
-    allowed = {"username", "nickname", "balance", "subscription_expires_at", "subscription_token"}
+    allowed = {"username", "nickname", "balance", "subscription_expires_at", "subscription_token", "referral_bonus_claimed"}
     updates = {k: v for k, v in kwargs.items() if k in allowed}
     if not updates:
         return
@@ -390,6 +401,196 @@ async def create_or_extend_subscription(telegram_id: int, days: int, plan_id: st
             )
             await db.commit()
         return token, new_expires
+
+
+async def add_gift_subscription_days(telegram_id: int, days: int, plan_id: str) -> tuple[str, int]:
+    """Продлить подписку на N дней без списания баланса (бонусы, рефералка)."""
+    if days <= 0:
+        raise ValueError("days must be positive")
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            row = await conn.fetchrow(
+                f'SELECT subscription_expires_at, subscription_token FROM "{USERS_TABLE}" WHERE telegram_id = $1',
+                telegram_id,
+            )
+            if not row:
+                raise ValueError("User not found")
+            now = _now()
+            current_expires = row["subscription_expires_at"] or 0
+            add_sec = days * 86400
+            new_expires = (current_expires + add_sec) if current_expires > now else (now + add_sec)
+            token = row["subscription_token"] or _create_token()
+            await conn.execute(
+                f'''UPDATE "{USERS_TABLE}" SET subscription_expires_at = $1,
+                    subscription_token = $2, updated_at = $3 WHERE telegram_id = $4''',
+                new_expires, token, now, telegram_id,
+            )
+            await conn.execute(
+                f'INSERT INTO "{PURCHASES_TABLE}" (telegram_id, plan_id, days, amount, created_at) VALUES ($1, $2, $3, $4, $5)',
+                telegram_id, plan_id, days, 0.0, now,
+            )
+        finally:
+            await conn.close()
+        return token, new_expires
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            f"SELECT subscription_expires_at, subscription_token FROM {USERS_TABLE} WHERE telegram_id = ?",
+            (telegram_id,),
+        )
+        row = await cur.fetchone()
+        if not row:
+            raise ValueError("User not found")
+        now = _now()
+        current_expires = row["subscription_expires_at"] or 0
+        add_sec = days * 86400
+        new_expires = (current_expires + add_sec) if current_expires > now else (now + add_sec)
+        token = row["subscription_token"] or _create_token()
+        await db.execute(
+            f"""UPDATE {USERS_TABLE} SET subscription_expires_at = ?,
+                subscription_token = ?, updated_at = ? WHERE telegram_id = ?""",
+            (new_expires, token, now, telegram_id),
+        )
+        await db.execute(
+            f"INSERT INTO {PURCHASES_TABLE} (telegram_id, plan_id, days, amount, created_at) VALUES (?, ?, ?, ?, ?)",
+            (telegram_id, plan_id, days, 0.0, now),
+        )
+        await db.commit()
+    return token, new_expires
+
+
+async def _gift_days_conn_pg(
+    conn: asyncpg.Connection,
+    telegram_id: int,
+    days: int,
+    plan_id: str,
+    now: int,
+) -> None:
+    row = await conn.fetchrow(
+        f'SELECT subscription_expires_at, subscription_token FROM "{USERS_TABLE}" WHERE telegram_id = $1',
+        telegram_id,
+    )
+    if not row:
+        raise ValueError("User not found")
+    current_expires = row["subscription_expires_at"] or 0
+    add_sec = days * 86400
+    new_expires = (current_expires + add_sec) if current_expires > now else (now + add_sec)
+    token = row["subscription_token"] or _create_token()
+    await conn.execute(
+        f'''UPDATE "{USERS_TABLE}" SET subscription_expires_at = $1,
+            subscription_token = $2, updated_at = $3 WHERE telegram_id = $4''',
+        new_expires,
+        token,
+        now,
+        telegram_id,
+    )
+    await conn.execute(
+        f'INSERT INTO "{PURCHASES_TABLE}" (telegram_id, plan_id, days, amount, created_at) VALUES ($1, $2, $3, $4, $5)',
+        telegram_id,
+        plan_id,
+        days,
+        0.0,
+        now,
+    )
+
+
+async def apply_referral_bonus(referee_id: int, referrer_id: int) -> bool:
+    """
+    Один раз: приглашённому +3 дня, пригласившему +6 дней.
+    Возвращает False, если бонус уже был или реферер совпадает с пользователем.
+    """
+    if referee_id == referrer_id:
+        return False
+    now = _now()
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            async with conn.transaction():
+                claimed = await conn.fetchrow(
+                    f'''UPDATE "{USERS_TABLE}" SET referral_bonus_claimed = 1, updated_at = $1
+                        WHERE telegram_id = $2 AND referral_bonus_claimed = 0
+                        RETURNING telegram_id''',
+                    now,
+                    referee_id,
+                )
+                if not claimed:
+                    return False
+                ref_row = await conn.fetchrow(
+                    f'SELECT telegram_id FROM "{USERS_TABLE}" WHERE telegram_id = $1',
+                    referrer_id,
+                )
+                if not ref_row:
+                    await conn.execute(
+                        f'''INSERT INTO "{USERS_TABLE}" (telegram_id, username, nickname, balance,
+                            subscription_expires_at, subscription_token, referral_bonus_claimed,
+                            created_at, updated_at)
+                            VALUES ($1, $2, $3, 0, NULL, $4, 0, $5, $5)''',
+                        referrer_id,
+                        "",
+                        f"user_{referrer_id}",
+                        _create_token(),
+                        now,
+                    )
+                await _gift_days_conn_pg(conn, referee_id, 3, "ref_referee_bonus", now)
+                await _gift_days_conn_pg(conn, referrer_id, 6, "ref_referrer_bonus", now)
+            return True
+        finally:
+            await conn.close()
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            cur_u = await db.execute(
+                f"UPDATE {USERS_TABLE} SET referral_bonus_claimed = 1, updated_at = ? "
+                f"WHERE telegram_id = ? AND referral_bonus_claimed = 0 "
+                f"RETURNING telegram_id",
+                (now, referee_id),
+            )
+            row_claim = await cur_u.fetchone()
+            if not row_claim:
+                await db.rollback()
+                return False
+            cur2 = await db.execute(f"SELECT 1 FROM {USERS_TABLE} WHERE telegram_id = ?", (referrer_id,))
+            if not await cur2.fetchone():
+                token_r = _create_token()
+                await db.execute(
+                    f"""INSERT INTO {USERS_TABLE} (telegram_id, username, nickname, balance,
+                        subscription_expires_at, subscription_token, referral_bonus_claimed, created_at, updated_at)
+                        VALUES (?, ?, ?, 0, NULL, ?, 0, ?, ?)""",
+                    (referrer_id, "", f"user_{referrer_id}", token_r, now, now),
+                )
+            for uid, days, pid in (
+                (referee_id, 3, "ref_referee_bonus"),
+                (referrer_id, 6, "ref_referrer_bonus"),
+            ):
+                cur = await db.execute(
+                    f"SELECT subscription_expires_at, subscription_token FROM {USERS_TABLE} WHERE telegram_id = ?",
+                    (uid,),
+                )
+                row = await cur.fetchone()
+                if not row:
+                    await db.rollback()
+                    return False
+                current_expires = row["subscription_expires_at"] or 0
+                add_sec = days * 86400
+                new_expires = (current_expires + add_sec) if current_expires > now else (now + add_sec)
+                token_u = row["subscription_token"] or _create_token()
+                await db.execute(
+                    f"""UPDATE {USERS_TABLE} SET subscription_expires_at = ?,
+                        subscription_token = ?, updated_at = ? WHERE telegram_id = ?""",
+                    (new_expires, token_u, now, uid),
+                )
+                await db.execute(
+                    f"INSERT INTO {PURCHASES_TABLE} (telegram_id, plan_id, days, amount, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (uid, pid, days, 0.0, now),
+                )
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
+    return True
 
 
 async def add_payment(telegram_id: int, amount: float, order_id: str, freekassa_order_id: str, status: str) -> None:
