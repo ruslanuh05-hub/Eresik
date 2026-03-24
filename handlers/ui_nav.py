@@ -83,6 +83,7 @@ async def apply_screen_from_callback(
     reply_markup,
     parse_mode: str | None = "HTML",
     photo_mode: Literal["welcome", "cabinet", "about", "support", "connect", "subs", "buy", "topup", "none"] = "welcome",
+    allow_fallback_send: bool = True,
 ) -> None:
     """
     Обновить сообщение с callback: при наличии фото — заменить медиа + подпись (главное меню / профиль).
@@ -90,6 +91,8 @@ async def apply_screen_from_callback(
     """
     msg = cb.message
     if not msg:
+        if not allow_fallback_send:
+            return
         # Сообщение недоступно — отправляем новое в чат.
         chat_id = cb.from_user.id
         try:
@@ -148,6 +151,8 @@ async def apply_screen_from_callback(
         if "message is not modified" in str(e).lower():
             return
         logger.debug("apply_screen: edit caption/text failed", exc_info=True)
+        if not allow_fallback_send:
+            return
         # При InaccessibleMessage `msg.answer()` может не сработать.
         chat_id = None
         try:

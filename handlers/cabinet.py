@@ -105,7 +105,7 @@ def device_selection_keyboard(has_sub_url: bool = False) -> InlineKeyboardMarkup
     ]
     if has_sub_url:
         rows.append([InlineKeyboardButton(text="📋 Скопировать ссылку", callback_data="sub:copy_link")])
-    rows.append([_plain_back_btn("connect_menu", "Назад⬅️")])
+    rows.append([_plain_back_btn("buy_sub", "Назад ⬅️")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -231,9 +231,9 @@ def _format_date(ts: int | None) -> str:
 
 def _platform_title(platform: str) -> str:
     return {
-        "android": f'{tg(E.ANDROID_ROBOT, "🤖")} Android',
-        "ios": f'{tg(E.IOS_APPLE, "🍏")} iOS',
-        "pc": f'{tg(E.PC_LAPTOP, "💻")} ПК',
+        "android": "🤖 Android",
+        "ios": "🍏 iOS",
+        "pc": "💻 ПК",
     }.get(platform, platform)
 
 
@@ -242,8 +242,8 @@ def build_purchase_success_text(plan_title: str, expires_at: int) -> str:
     return (
         "✅ <b>Подписка активирована!</b>\n\n"
         f"Тариф: {escape(plan_title)}\n\n"
-        f'{tg(E.CALENDAR, "🗓️")} Действует до: {_format_date(expires_at)}\n'
-        f'{tg(E.CLOCK, "🕒")} Осталось: {_format_expires(expires_at)}\n\n'
+        f"🗓️ Действует до: {_format_date(expires_at)}\n"
+        f"🕒 Осталось: {_format_expires(expires_at)}\n\n"
         "Выберите устройство и приложение — импорт откроется по кнопкам ниже."
     )
 
@@ -254,9 +254,9 @@ def build_my_subscriptions_text(
 ) -> str:
     """Текст экрана «Мои подписки» (без URL)."""
     base = (
-        f'{tg(E.PARTY, "🎉")} <b>Мои подписки</b>\n\n'
-        f'{tg(E.CALENDAR, "🗓️")} Действует до: {_format_date(expires_at)}\n'
-        f'{tg(E.CLOCK, "🕒")} Осталось: {_format_expires(expires_at)}\n\n'
+        "🎉 <b>Мои подписки</b>\n\n"
+        f"🗓️ Действует до: {_format_date(expires_at)}\n"
+        f"🕒 Осталось: {_format_expires(expires_at)}\n\n"
     )
     if platform is None:
         return base + "Управляйте подпиской кнопками ниже:"
@@ -564,7 +564,7 @@ async def cmd_sub(msg: Message):
         kb = my_subscriptions_actions_keyboard(is_active=True)
     else:
         text = (
-            f'{tg(E.PARTY, "🎉")} <b>Мои подписки</b>\n\n'
+            "🎉 <b>Мои подписки</b>\n\n"
             "Подписка не активна.\n\n"
             "Купите подписку в разделе «Купить подписку»."
         )
@@ -589,7 +589,7 @@ async def show_my_subscriptions(cb: CallbackQuery):
             kb = my_subscriptions_actions_keyboard(is_active=True)
         else:
             text = (
-                f'{tg(E.PARTY, "🎉")} <b>Мои подписки</b>\n\n'
+                "🎉 <b>Мои подписки</b>\n\n"
                 "Подписка не активна.\n\n"
                 "Купите подписку в разделе «Купить подписку»."
             )

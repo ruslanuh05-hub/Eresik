@@ -193,6 +193,7 @@ async def show_connect_menu(cb: CallbackQuery):
         reply_markup=kb,
         parse_mode=ParseMode.HTML,
         photo_mode="connect",
+        allow_fallback_send=False,
     )
     await cb.answer()
 
