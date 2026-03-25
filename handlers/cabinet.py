@@ -193,6 +193,13 @@ def cabinet_keyboard() -> InlineKeyboardMarkup:
                     icon_custom_emoji_id=E.MOLNY,
                 ),
             ],
+            [
+                InlineKeyboardButton(
+                    text="Реферальная программа",
+                    callback_data="referrals",
+                    icon_custom_emoji_id=E.MONEY,
+                )
+            ],
             [back_btn(callback_data="main_menu", text="назад")],
         ]
     )
