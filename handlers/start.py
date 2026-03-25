@@ -342,7 +342,7 @@ async def subgate_confirm(cb: CallbackQuery, state: FSMContext):
     await _deliver_welcome(cb.bot, cb.message.chat.id)
 
 
-@router.message(Command())
+@router.message(F.text.startswith("/"))
 async def ignore_other_commands(msg: Message):
     """Бот реагирует только на /start; остальные команды игнорируем."""
     if not msg.text:
