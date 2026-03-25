@@ -180,6 +180,13 @@ def cabinet_keyboard() -> InlineKeyboardMarkup:
                     icon_custom_emoji_id=E.INSTRUCTION_BOOKMARK,
                 ),
             ],
+            [
+                InlineKeyboardButton(
+                    text="Реферальная программа",
+                    callback_data="referrals",
+                    icon_custom_emoji_id=E.MONEY,
+                )
+            ],
             row_back_main(),
         ]
     )

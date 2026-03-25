@@ -380,12 +380,9 @@ async def show_referrals(cb: CallbackQuery):
     invite_link = f"https://t.me/{bot_username}?start={code}" if bot_username else "Ссылка недоступна"
     text = (
         f'{tg(E.MONEY, "🪙")} <b>Реферальная система</b>\n\n'
-        "Приглашайте друзей по ссылке ниже.\n\n"
-        "Когда друг <b>впервые</b> зайдёт по вашей ссылке и пройдёт короткую проверку — "
-        "ему будет начислено <b>+3 дня</b> подписки, а вам — <b>+6 дней</b>.\n\n"
-        f"Ваш код: <code>{escape(code)}</code>\n"
-        f"Ваша ссылка: <code>{escape(invite_link)}</code>\n\n"
-        "<i>Проверка нужна только при переходе по реферальной ссылке. Обычный /start без ссылки — без проверки.</i>"
+        "Приглашайте друзей и получайте бонусы.\n\n"
+        f"Ваша ссылка: {escape(invite_link)}\n\n"
+        "Отправьте ссылку другу – Вы сами получите 6 дней подписки, а друг 3 дня"
     )
     await _safe_edit_message(cb, text, reply_markup=markup_back_main_only(), parse_mode="HTML")
     await cb.answer()
