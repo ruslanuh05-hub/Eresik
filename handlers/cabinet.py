@@ -92,7 +92,7 @@ def _plain_back_btn(callback_data: str, text: str = "Назад") -> InlineKeybo
     return InlineKeyboardButton(text=text, callback_data=callback_data, icon_custom_emoji_id=E.BACKARROW)
 
 
-def device_selection_keyboard(has_sub_url: bool = False) -> InlineKeyboardMarkup:
+def device_selection_keyboard(*, has_sub_url: bool = False, back_callback: str = "my_subscriptions") -> InlineKeyboardMarkup:
     """Шаг 1: выбор устройства (Android | iOS / ПК)."""
     rows = [
         [
@@ -105,7 +105,7 @@ def device_selection_keyboard(has_sub_url: bool = False) -> InlineKeyboardMarkup
     ]
     if has_sub_url:
         rows.append([InlineKeyboardButton(text="📋 Скопировать ссылку", callback_data="sub:copy_link")])
-    rows.append([_plain_back_btn("buy_sub", "Назад")])
+    rows.append([_plain_back_btn(back_callback, "Назад")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -168,41 +168,19 @@ def cabinet_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Подключиться",
+                    text="подключиться",
                     callback_data="my_subscriptions",
                     icon_custom_emoji_id=E.MOLNY,
                 ),
             ],
-            [
-                InlineKeyboardButton(
-                    text="Продлить подписку",
-                    callback_data="renew_sub",
-                    icon_custom_emoji_id=E.INSTRUCTION_BOOKMARK,
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="Реферальная программа",
-                    callback_data="referrals",
-                    icon_custom_emoji_id=E.MONEY,
-                )
-            ],
-            row_back_main(),
+            [back_btn(callback_data="main_menu", text="назад")],
         ]
     )
 
 
 def my_subscriptions_actions_keyboard(is_active: bool) -> InlineKeyboardMarkup:
     """Кнопки для экрана «Мои подписки» в требуемом порядке."""
-    rows: list[list[InlineKeyboardButton]] = [
-        [
-            InlineKeyboardButton(
-                text="Купить подписку",
-                callback_data="buy_sub:subs",
-                icon_custom_emoji_id=E.GIFT,
-            )
-        ]
-    ]
+    rows: list[list[InlineKeyboardButton]] = []
     if is_active:
         rows.append(
             [
@@ -213,13 +191,22 @@ def my_subscriptions_actions_keyboard(is_active: bool) -> InlineKeyboardMarkup:
                 )
             ]
         )
-        # Для удобства подключения показываем выбор устройства прямо в «Мои подписки».
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="К устройствам",
+                    text="Выбор подключения",
                     callback_data="subdev:menu",
                     icon_custom_emoji_id=E.MOLNY,
+                ),
+            ]
+        )
+    else:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="Купить подписку",
+                    callback_data="buy_sub:subs",
+                    icon_custom_emoji_id=E.GIFT,
                 )
             ]
         )
@@ -296,19 +283,19 @@ def _cabinet_html(user: dict, telegram_id: int, *, rich_emoji: bool) -> str:
 
     if not rich_emoji:
         return (
-            "👤 <b>Личный кабинет</b>\n\n"
-            f"👤 Ник: <code>{nick_safe}</code>\n"
-            f"💰 Баланс: <b>{balance:.2f} ₽</b>\n"
-            f"🗓️ Подписка до: {_format_date(expires_at)}\n"
-            f"🕒 Осталось: {_format_expires(expires_at)}\n"
+            "📹 <b>Личный кабинет</b>\n\n"
+            f"🔵 Ник: <code>{nick_safe}</code>\n"
+            f"🪙 Баланс: <b>{balance:.2f} ₽</b>\n"
+            f"⏰️ Подписка до: {_format_date(expires_at)}\n"
+            f"🎞 Осталось: {_format_expires(expires_at)}\n"
         )
 
     return (
-        f'{tg(E.USER_HEADER, "👤")} <b>Личный кабинет</b>\n\n'
-        f'{tg(E.USER_NICK, "👤")} Ник: <code>{nick_safe}</code>\n'
-        f'{tg(E.MONEY, "💰")} Баланс: <b>{balance:.2f} ₽</b>\n'
-        f'{tg(E.CALENDAR, "🗓️")} Подписка до: {_format_date(expires_at)}\n'
-        f'{tg(E.CLOCK, "🕒")} Осталось: {_format_expires(expires_at)}\n'
+        f'📹 <b>Личный кабинет</b>\n\n'
+        f'{tg(E.PROFILE_DOT, "🔵")} Ник: <code>{nick_safe}</code>\n'
+        f'{tg(E.PROFILE_MONEY, "🪙")} Баланс: <b>{balance:.2f} ₽</b>\n'
+        f'{tg(E.PROFILE_CLOCK, "⏰️")} Подписка до: {_format_date(expires_at)}\n'
+        f'{tg(E.PROFILE_FILM, "🎞")} Осталось: {_format_expires(expires_at)}\n'
     )
 
 
@@ -639,7 +626,12 @@ async def handle_subdev_step(cb: CallbackQuery):
             return
         await cb.answer()
         text = build_my_subscriptions_text(expires_at, platform=None)
-        await _send_subs_screen(cb, text, device_selection_keyboard(has_sub_url=True), parse_mode="HTML")
+        await _send_subs_screen(
+            cb,
+            text,
+            device_selection_keyboard(has_sub_url=True, back_callback="my_subscriptions"),
+            parse_mode="HTML",
+        )
         return
 
     platform = data.split(":", 1)[1]

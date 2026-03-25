@@ -119,7 +119,7 @@ async def buy_plan(cb: CallbackQuery):
     await _safe_edit_message(
         cb.message,
         success_text,
-        reply_markup=device_selection_keyboard(),
+        reply_markup=device_selection_keyboard(back_callback="buy_sub"),
         parse_mode="HTML",
     )
     await cb.answer()
