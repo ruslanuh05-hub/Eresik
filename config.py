@@ -84,6 +84,7 @@ ABOUT_IMAGE = Path(__file__).parent / "assets" / "faq.jpg"
 SUPPORT_IMAGE = Path(__file__).parent / "assets" / "help.jpg"
 CONNECT_IMAGE = Path(__file__).parent / "assets" / "buyvpn.jpg"
 TOPUP_IMAGE = Path(__file__).parent / "assets" / "bal.jpg"
+REFERRALS_IMAGE = Path(__file__).parent / "assets" / "refs.jpg"
 
 # Алиасы для старого кода:
 # - раньше использовались PNG, сейчас переиспользуем JPG

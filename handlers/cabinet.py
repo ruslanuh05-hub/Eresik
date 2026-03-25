@@ -311,7 +311,7 @@ def _cabinet_html(user: dict, telegram_id: int, *, rich_emoji: bool) -> str:
         )
 
     return (
-        f'📹 <b>Личный кабинет</b>\n\n'
+        f'{tg(E.PROF, "📹")} <b>Личный кабинет</b>\n\n'
         f'{tg(E.PROFILE_DOT, "🔵")} Ник: <code>{nick_safe}</code>\n'
         f'{tg(E.PROFILE_MONEY, "🪙")} Баланс: <b>{balance:.2f} ₽</b>\n'
         f'{tg(E.PROFILE_CLOCK, "⏰️")} Подписка до: {_format_date(expires_at)}\n'

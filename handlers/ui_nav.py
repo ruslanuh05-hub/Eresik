@@ -21,6 +21,7 @@ from config import (
     SUPPORT_IMAGE,
     CONNECT_IMAGE,
     TOPUP_IMAGE,
+    REFERRALS_IMAGE,
     SUBSCRIPTIONS_IMAGE,
     BUY_SUBSCRIPTION_IMAGE,
 )
@@ -60,6 +61,8 @@ def _photo_path_for_mode(photo_mode: str):
         return BUY_SUBSCRIPTION_IMAGE
     if photo_mode == "topup":
         return TOPUP_IMAGE
+    if photo_mode == "refs":
+        return REFERRALS_IMAGE
     return None
 
 
@@ -73,6 +76,7 @@ def _placeholder_color_for_mode(photo_mode: str) -> tuple[int, int, int]:
         "subs": (60, 60, 10),
         "buy": (60, 60, 10),
         "topup": (20, 60, 70),
+        "refs": (35, 30, 60),
     }.get(photo_mode, (10, 30, 60))
 
 
@@ -82,7 +86,7 @@ async def apply_screen_from_callback(
     text: str,
     reply_markup,
     parse_mode: str | None = "HTML",
-    photo_mode: Literal["welcome", "cabinet", "about", "support", "connect", "subs", "buy", "topup", "none"] = "welcome",
+    photo_mode: Literal["welcome", "cabinet", "about", "support", "connect", "subs", "buy", "topup", "refs", "none"] = "welcome",
     allow_fallback_send: bool = True,
 ) -> None:
     """
@@ -207,7 +211,7 @@ async def apply_screen_from_message(
     text: str,
     reply_markup,
     parse_mode: str | None = "HTML",
-    photo_mode: Literal["welcome", "cabinet", "about", "support", "connect", "subs", "buy", "topup", "none"] = "welcome",
+    photo_mode: Literal["welcome", "cabinet", "about", "support", "connect", "subs", "buy", "topup", "refs", "none"] = "welcome",
 ) -> None:
     """То же для Message (topup/buy без CallbackQuery в сигнатуре)."""
     if photo_mode != "none" and message.photo:

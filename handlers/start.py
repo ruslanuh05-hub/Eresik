@@ -513,7 +513,13 @@ async def show_referrals(cb: CallbackQuery):
         f"Ваша ссылка: {escape(invite_link)}\n\n"
         "Отправьте ссылку другу — Вы и друг получите по 3 дня подписки"
     )
-    await _safe_edit_message(cb, text, reply_markup=markup_back_main_only(), parse_mode="HTML")
+    await _safe_edit_message(
+        cb,
+        text,
+        reply_markup=markup_back_main_only(),
+        parse_mode="HTML",
+        photo_mode="refs",
+    )
     await cb.answer()
 
 
