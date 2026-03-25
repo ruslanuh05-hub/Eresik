@@ -96,15 +96,35 @@ def device_selection_keyboard(*, has_sub_url: bool = False, back_callback: str =
     """Шаг 1: выбор устройства (Android | iOS / ПК)."""
     rows = [
         [
-            InlineKeyboardButton(text="🤖 Android", callback_data="subdev:android"),
-            InlineKeyboardButton(text="🍏 iOS", callback_data="subdev:ios"),
+            InlineKeyboardButton(
+                text="Android",
+                callback_data="subdev:android",
+                icon_custom_emoji_id=E.ANDROID_ROBOT,
+            ),
+            InlineKeyboardButton(
+                text="iOS",
+                callback_data="subdev:ios",
+                icon_custom_emoji_id=E.IOS_APPLE,
+            ),
         ],
         [
-            InlineKeyboardButton(text="💻 ПК", callback_data="subdev:pc"),
+            InlineKeyboardButton(
+                text="ПК",
+                callback_data="subdev:pc",
+                icon_custom_emoji_id=E.PC_LAPTOP,
+            ),
         ],
     ]
     if has_sub_url:
-        rows.append([InlineKeyboardButton(text="📋 Скопировать ссылку", callback_data="sub:copy_link")])
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="Скопировать ссылку",
+                    callback_data="sub:copy_link",
+                    icon_custom_emoji_id=E.INSTRUCTION_BOOKMARK,
+                )
+            ]
+        )
     rows.append([_plain_back_btn(back_callback, "Назад")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -151,11 +171,11 @@ def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardM
         return InlineKeyboardButton(text=text, url=url) if url else None
 
     if platform in ("android", "ios"):
-        btns = [_url_btn("📱 v2RayTun", "v2raytun"), _url_btn("📱 Happ", "happ")]
+        btns = [_url_btn("v2RayTun", "v2raytun"), _url_btn("Happ", "happ")]
         if any(btns):
             rows.append([b for b in btns if b is not None])
     elif platform == "pc":
-        btns = [_url_btn("💻 Hiddify", "hiddify"), _url_btn("📱 Happ", "happ")]
+        btns = [_url_btn("Hiddify", "hiddify"), _url_btn("Happ", "happ")]
         if any(btns):
             rows.append([b for b in btns if b is not None])
     rows.append([_plain_back_btn("subdev:menu", "К устройствам")])
@@ -259,8 +279,8 @@ def build_my_subscriptions_text(
     """Текст экрана «Мои подписки» (без URL)."""
     base = (
         f'{tg(E.PARTY, "🎉")} <b>Мои подписки</b>\n\n'
-        f"🗓️ Действует до: {_format_date(expires_at)}\n"
-        f"🕒 Осталось: {_format_expires(expires_at)}\n\n"
+        f'{tg(E.PROFILE_FILM, "🎞")} Действует до: {_format_date(expires_at)}\n'
+        f'{tg(E.PROFILE_CLOCK, "⏰️")} Осталось: {_format_expires(expires_at)}\n\n'
     )
     if platform is None:
         return base + "Управляйте подпиской кнопками ниже:"
