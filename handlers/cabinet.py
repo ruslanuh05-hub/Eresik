@@ -50,7 +50,7 @@ async def _send_subs_screen(cb: CallbackQuery, text: str, reply_markup, parse_mo
             for pm in (parse_mode, None):
                 try:
                     kb = reply_markup if use_markup else None
-                    if getattr(msg, "caption", None) is not None:
+                    if getattr(msg, "photo", None):
                         if pm:
                             await msg.edit_caption(caption=text, parse_mode=pm, reply_markup=kb)
                         else:
@@ -210,6 +210,16 @@ def my_subscriptions_actions_keyboard(is_active: bool) -> InlineKeyboardMarkup:
                     text="Продлить",
                     callback_data="renew_sub",
                     icon_custom_emoji_id=E.MONEY,
+                )
+            ]
+        )
+        # Для удобства подключения показываем выбор устройства прямо в «Мои подписки».
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="К устройствам",
+                    callback_data="subdev:menu",
+                    icon_custom_emoji_id=E.MOLNY,
                 )
             ]
         )

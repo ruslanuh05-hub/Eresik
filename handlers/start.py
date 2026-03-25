@@ -54,36 +54,30 @@ class SubscriptionGate(StatesGroup):
     waiting = State()
 
 
-# Эмодзи для проверки (только при первом /start по ссылке ref_*)
-_REF_CAPTCHA_EMOJIS: list[tuple[str, str]] = [
-    (E.PARTY, "🎉"),
-    (E.GIFT, "🎁"),
-    (E.MOLNY, "⚡️"),
-    (E.HEART, "💜"),
-]
+# Обычные эмодзи для проверки (только при первом /start по ссылке ref_*)
+_REF_CAPTCHA_EMOJIS: list[str] = ["🎉", "🎁", "⚡️", "💜"]
 
 
 def _build_ref_captcha_keyboard() -> tuple[InlineKeyboardMarkup, str, str]:
-    """Клавиатура 2×2: ровно один совпадает с подсказкой в тексте."""
-    correct_id, fb = random.choice(_REF_CAPTCHA_EMOJIS)
-    order = _REF_CAPTCHA_EMOJIS.copy()
-    random.shuffle(order)
-    rows: list[list[InlineKeyboardButton]] = []
-    pair: list[InlineKeyboardButton] = []
-    for eid, _ in order:
-        pair.append(
-            InlineKeyboardButton(
-                text="·",
-                callback_data=f"refpick:{eid}",
-                icon_custom_emoji_id=eid,
-            )
+    """
+    Ровно 3 кнопки: одна правильная + две случайные.
+    Всегда рандомные эмодзи.
+    """
+    correct_idx = random.randrange(len(_REF_CAPTCHA_EMOJIS))  # 0..3
+    others = [i for i in range(len(_REF_CAPTCHA_EMOJIS)) if i != correct_idx]
+    wrong1, wrong2 = random.sample(others, 2)
+    options = [correct_idx, wrong1, wrong2]
+    random.shuffle(options)
+
+    def _btn(idx: int) -> InlineKeyboardButton:
+        return InlineKeyboardButton(
+            text=_REF_CAPTCHA_EMOJIS[idx],
+            callback_data=f"refpick:{idx}",
         )
-        if len(pair) == 2:
-            rows.append(pair)
-            pair = []
-    if pair:
-        rows.append(pair)
-    return InlineKeyboardMarkup(inline_keyboard=rows), correct_id, fb
+
+    # 3 кнопки: 2 в первой строке и 1 во второй
+    rows = [[_btn(options[0]), _btn(options[1])], [_btn(options[2])]]
+    return InlineKeyboardMarkup(inline_keyboard=rows), str(correct_idx), _REF_CAPTCHA_EMOJIS[correct_idx]
 
 
 async def _is_user_subscribed(bot, user_id: int) -> bool:
@@ -278,11 +272,11 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
             await _send_welcome(msg)
             return
         await state.set_state(ReferralCaptcha.waiting)
-        kb, correct_id, fb = _build_ref_captcha_keyboard()
-        await state.update_data(referrer_id=referrer_id, correct_emoji_id=str(correct_id))
+        kb, correct_pick, correct_emoji = _build_ref_captcha_keyboard()
+        await state.update_data(referrer_id=referrer_id, correct_emoji_id=str(correct_pick))
         await msg.answer(
-            f'{tg(E.SUPPORT_BOT, "🤖")} <b>Быстрая проверка</b>\n\n'
-            f"Нажмите на такой же эмодзи: {tg(correct_id, fb)}\n\n"
+            f'🤖 <b>Быстрая проверка</b>\n\n'
+            f"Нажмите на такой же эмодзи: {correct_emoji}\n\n"
             "<i>Нужно только при переходе по реферальной ссылке.</i>",
             reply_markup=kb,
             parse_mode=ParseMode.HTML,
@@ -334,11 +328,11 @@ async def subgate_confirm(cb: CallbackQuery, state: FSMContext):
             return
 
         await state.set_state(ReferralCaptcha.waiting)
-        kb, correct_id, fb = _build_ref_captcha_keyboard()
-        await state.update_data(referrer_id=referrer_id, correct_emoji_id=str(correct_id))
+        kb, correct_pick, correct_emoji = _build_ref_captcha_keyboard()
+        await state.update_data(referrer_id=referrer_id, correct_emoji_id=str(correct_pick))
         await cb.message.answer(
-            f'{tg(E.SUPPORT_BOT, "🤖")} <b>Быстрая проверка</b>\n\n'
-            f"Нажмите на такой же эмодзи: {tg(correct_id, fb)}\n\n"
+            f'🤖 <b>Быстрая проверка</b>\n\n'
+            f"Нажмите на такой же эмодзи: {correct_emoji}\n\n"
             "<i>Нужно только при переходе по реферальной ссылке.</i>",
             reply_markup=kb,
             parse_mode=ParseMode.HTML,
@@ -372,12 +366,12 @@ async def referral_captcha_pick(cb: CallbackQuery, state: FSMContext):
         return
     if picked != correct:
         await cb.answer("Неверно. Попробуйте ещё раз.", show_alert=True)
-        kb, new_correct_id, fb = _build_ref_captcha_keyboard()
-        await state.update_data(correct_emoji_id=str(new_correct_id))
+        kb, new_correct_pick, new_correct_emoji = _build_ref_captcha_keyboard()
+        await state.update_data(correct_emoji_id=str(new_correct_pick))
         try:
             await cb.message.edit_text(
-                f'{tg(E.SUPPORT_BOT, "🤖")} <b>Быстрая проверка</b>\n\n'
-                f"Нажмите на такой же эмодзи: {tg(new_correct_id, fb)}\n\n"
+                f'🤖 <b>Быстрая проверка</b>\n\n'
+                f"Нажмите на такой же эмодзи: {new_correct_emoji}\n\n"
                 "<i>Нужно только при переходе по реферальной ссылке.</i>",
                 reply_markup=kb,
                 parse_mode=ParseMode.HTML,
