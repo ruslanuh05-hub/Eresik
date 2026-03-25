@@ -33,6 +33,8 @@ from config import (
     GUIDE_IOS_VIDEO,
     GUIDE_ANDROID_TV_VIDEO,
     GUIDE_PC_VIDEO,
+    SUBSCRIBE_CHANNEL_USERNAME,
+    SUBSCRIBE_CHANNEL_URL,
 )
 from handlers.keyboards_common import markup_back_main_only, row_back_main
 from handlers.ui_nav import apply_screen_from_callback
@@ -76,6 +78,19 @@ def _build_ref_captcha_keyboard() -> tuple[InlineKeyboardMarkup, str, str]:
     if pair:
         rows.append(pair)
     return InlineKeyboardMarkup(inline_keyboard=rows), correct_id, fb
+
+
+async def _is_user_subscribed(bot, user_id: int) -> bool:
+    """
+    Проверить подписку на канал/чат по username.
+    Если API Telegram отдаёт ошибку — считаем что не подписан.
+    """
+    try:
+        # aiogram v3: get_chat_member(chat_id=..., user_id=...)
+        member = await bot.get_chat_member(chat_id=f"@{SUBSCRIBE_CHANNEL_USERNAME}", user_id=user_id)
+        return getattr(member, "status", None) in ("member", "administrator", "creator")
+    except Exception:
+        return False
 
 
 async def _strip_reply_keyboard(bot, chat_id: int) -> None:
@@ -277,6 +292,28 @@ async def referral_captcha_pick(cb: CallbackQuery, state: FSMContext):
 
     await cb.answer()
     await state.clear()
+
+    # Награда только при наличии подписки.
+    if not await _is_user_subscribed(cb.bot, cb.from_user.id):
+        await cb.message.answer(
+            "Чтобы получить реферальную награду, пожалуйста подпишитесь на канал:\n"
+            f"{SUBSCRIBE_CHANNEL_URL}",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="Подписаться",
+                            url=SUBSCRIBE_CHANNEL_URL,
+                        )
+                    ],
+                    [row_back_main()[0]],
+                ]
+            ),
+        )
+        await _deliver_welcome(cb.bot, cb.message.chat.id)
+        return
+
     try:
         ok = await apply_referral_bonus(cb.from_user.id, referrer_id)
     except Exception:
