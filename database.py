@@ -497,7 +497,7 @@ async def _gift_days_conn_pg(
 
 async def apply_referral_bonus(referee_id: int, referrer_id: int) -> bool:
     """
-    Один раз: приглашённому +3 дня, пригласившему +6 дней.
+    Один раз: приглашённому +3 дня, пригласившему +3 дня.
     Возвращает False, если бонус уже был или реферер совпадает с пользователем.
     """
     if referee_id == referrer_id:
@@ -533,7 +533,7 @@ async def apply_referral_bonus(referee_id: int, referrer_id: int) -> bool:
                         now,
                     )
                 await _gift_days_conn_pg(conn, referee_id, 3, "ref_referee_bonus", now)
-                await _gift_days_conn_pg(conn, referrer_id, 6, "ref_referrer_bonus", now)
+                await _gift_days_conn_pg(conn, referrer_id, 3, "ref_referrer_bonus", now)
             return True
         finally:
             await conn.close()
@@ -563,7 +563,7 @@ async def apply_referral_bonus(referee_id: int, referrer_id: int) -> bool:
                 )
             for uid, days, pid in (
                 (referee_id, 3, "ref_referee_bonus"),
-                (referrer_id, 6, "ref_referrer_bonus"),
+                (referrer_id, 3, "ref_referrer_bonus"),
             ):
                 cur = await db.execute(
                     f"SELECT subscription_expires_at, subscription_token FROM {USERS_TABLE} WHERE telegram_id = ?",

@@ -5,7 +5,7 @@ from html import escape
 
 from aiogram import Router, F
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandObject, CommandStart
+from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
@@ -35,6 +35,7 @@ from config import (
     GUIDE_PC_VIDEO,
     SUBSCRIBE_CHANNEL_USERNAME,
     SUBSCRIBE_CHANNEL_URL,
+    SUBSCRIBE_CHANNEL_ID,
 )
 from handlers.keyboards_common import markup_back_main_only, row_back_main
 from handlers.ui_nav import apply_screen_from_callback
@@ -45,6 +46,11 @@ router = Router()
 
 
 class ReferralCaptcha(StatesGroup):
+    waiting = State()
+    waiting_subcheck = State()
+
+
+class SubscriptionGate(StatesGroup):
     waiting = State()
 
 
@@ -86,8 +92,14 @@ async def _is_user_subscribed(bot, user_id: int) -> bool:
     Если API Telegram отдаёт ошибку — считаем что не подписан.
     """
     try:
+        chat_id: str | int
+        if SUBSCRIBE_CHANNEL_ID and SUBSCRIBE_CHANNEL_ID.lstrip("-").isdigit():
+            chat_id = int(SUBSCRIBE_CHANNEL_ID)
+        else:
+            chat_id = f"@{SUBSCRIBE_CHANNEL_USERNAME}"
+
         # aiogram v3: get_chat_member(chat_id=..., user_id=...)
-        member = await bot.get_chat_member(chat_id=f"@{SUBSCRIBE_CHANNEL_USERNAME}", user_id=user_id)
+        member = await bot.get_chat_member(chat_id=chat_id, user_id=user_id)
         return getattr(member, "status", None) in ("member", "administrator", "creator")
     except Exception:
         return False
@@ -178,13 +190,6 @@ def connect_keyboard() -> InlineKeyboardMarkup:
                     icon_custom_emoji_id=E.MONEY,
                 ),
             ],
-            [
-                InlineKeyboardButton(
-                    text="Реферальная программа",
-                    callback_data="referrals",
-                    icon_custom_emoji_id=E.MONEY,
-                ),
-            ],
             row_back_main(),
         ]
     )
@@ -227,6 +232,30 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
     await get_or_create_user(msg.from_user.id, msg.from_user.username)
 
     raw = (command.args or "").strip() if command else ""
+
+    # Ворота подписки: до подтверждения подписки не показываем меню и не даём рефералку.
+    if not await _is_user_subscribed(msg.bot, msg.from_user.id):
+        await state.set_state(SubscriptionGate.waiting)
+        await state.update_data(start_args=raw, existed_before=bool(existed_before))
+        await msg.answer(
+            "Подпишитесь на наш канал, чтобы продолжить.\n\n"
+            f"{SUBSCRIBE_CHANNEL_URL}\n\n"
+            "После подписки нажмите «Проверить подписку».",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="Подписаться",
+                            url=SUBSCRIBE_CHANNEL_URL,
+                        )
+                    ],
+                    [InlineKeyboardButton(text="Проверить подписку", callback_data="subgate_confirm")],
+                ]
+            ),
+        )
+        return
+
     if raw.startswith("ref_"):
         try:
             referrer_id = int(raw[4:])
@@ -263,6 +292,73 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
     await _send_welcome(msg)
 
 
+@router.callback_query(SubscriptionGate.waiting, F.data == "subgate_confirm")
+async def subgate_confirm(cb: CallbackQuery, state: FSMContext):
+    await cb.answer()
+    data = await state.get_data()
+    raw = str(data.get("start_args") or "")
+    existed_before = bool(data.get("existed_before"))
+
+    if not await _is_user_subscribed(cb.bot, cb.from_user.id):
+        await cb.message.answer(
+            "Похоже, вы ещё не подписаны. Подпишитесь и нажмите «Проверить подписку» снова.",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    await state.clear()
+
+    # Продолжаем исходный сценарий как будто снова нажали /start.
+    if raw.startswith("ref_"):
+        try:
+            referrer_id = int(raw[4:])
+        except ValueError:
+            await _deliver_welcome(cb.bot, cb.message.chat.id)
+            return
+
+        if referrer_id == cb.from_user.id:
+            await _deliver_welcome(cb.bot, cb.message.chat.id)
+            return
+
+        if existed_before:
+            await cb.message.answer(
+                "Вы уже были зарегистрированы ранее, поэтому реферальный бонус недоступен.",
+                parse_mode=ParseMode.HTML,
+            )
+            await _deliver_welcome(cb.bot, cb.message.chat.id)
+            return
+
+        user = await get_or_create_user(cb.from_user.id, cb.from_user.username)
+        if int(user.get("referral_bonus_claimed") or 0):
+            await _deliver_welcome(cb.bot, cb.message.chat.id)
+            return
+
+        await state.set_state(ReferralCaptcha.waiting)
+        kb, correct_id, fb = _build_ref_captcha_keyboard()
+        await state.update_data(referrer_id=referrer_id, correct_emoji_id=str(correct_id))
+        await cb.message.answer(
+            f'{tg(E.SUPPORT_BOT, "🤖")} <b>Быстрая проверка</b>\n\n'
+            f"Нажмите на такой же эмодзи: {tg(correct_id, fb)}\n\n"
+            "<i>Нужно только при переходе по реферальной ссылке.</i>",
+            reply_markup=kb,
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    await _deliver_welcome(cb.bot, cb.message.chat.id)
+
+
+@router.message(Command())
+async def ignore_other_commands(msg: Message):
+    """Бот реагирует только на /start; остальные команды игнорируем."""
+    if not msg.text:
+        return
+    cmd = msg.text.split()[0].lower()
+    if cmd == "/start":
+        return
+    # deliberately do nothing
+
+
 @router.callback_query(ReferralCaptcha.waiting, F.data.startswith("refpick:"))
 async def referral_captcha_pick(cb: CallbackQuery, state: FSMContext):
     picked = (cb.data or "").split(":", 1)[1].strip()
@@ -291,13 +387,41 @@ async def referral_captcha_pick(cb: CallbackQuery, state: FSMContext):
         return
 
     await cb.answer()
-    await state.clear()
+    # Награда только после успешной проверки подписки по кнопке.
+    await state.set_state(ReferralCaptcha.waiting_subcheck)
+    await cb.message.answer(
+        "Осталось подписаться на канал и подтвердить.\n\n"
+        f"Канал: {SUBSCRIBE_CHANNEL_URL}\n\n"
+        "Нажмите кнопку «Проверить подписку» — и только после успешной проверки начислим награду.",
+        parse_mode=ParseMode.HTML,
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="Подписаться",
+                        url=SUBSCRIBE_CHANNEL_URL,
+                    )
+                ],
+                [InlineKeyboardButton(text="Проверить подписку", callback_data="refsubcheck")],
+            ]
+        ),
+    )
 
-    # Награда только при наличии подписки.
+
+@router.callback_query(ReferralCaptcha.waiting_subcheck, F.data == "refsubcheck")
+async def referral_subcheck(cb: CallbackQuery, state: FSMContext):
+    await cb.answer()
+    data = await state.get_data()
+    referrer_id = int(data.get("referrer_id") or 0)
+
+    if referrer_id <= 0:
+        await state.clear()
+        await _deliver_welcome(cb.bot, cb.message.chat.id)
+        return
+
     if not await _is_user_subscribed(cb.bot, cb.from_user.id):
         await cb.message.answer(
-            "Чтобы получить реферальную награду, пожалуйста подпишитесь на канал:\n"
-            f"{SUBSCRIBE_CHANNEL_URL}",
+            "Вы ещё не подписаны. Подпишитесь по ссылке и нажмите «Проверить подписку» ещё раз.",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -307,30 +431,41 @@ async def referral_captcha_pick(cb: CallbackQuery, state: FSMContext):
                             url=SUBSCRIBE_CHANNEL_URL,
                         )
                     ],
-                    [row_back_main()[0]],
+                    [InlineKeyboardButton(text="Проверить подписку", callback_data="refsubcheck")],
                 ]
             ),
         )
-        await _deliver_welcome(cb.bot, cb.message.chat.id)
         return
 
     try:
         ok = await apply_referral_bonus(cb.from_user.id, referrer_id)
     except Exception:
-        logger.exception("apply_referral_bonus failed")
+        logger.exception("apply_referral_bonus failed (subcheck)")
         ok = False
+
+    await state.clear()
     if ok:
         await cb.message.answer(
             "✅ <b>Готово!</b>\n\n"
             "Вам начислено <b>+3 дня</b> подписки.\n"
-            "Вашему другу — <b>+6 дней</b>.",
+            "Своему другу тоже начислено <b>+3 дня</b>.",
             parse_mode=ParseMode.HTML,
         )
+        try:
+            await cb.bot.send_message(
+                referrer_id,
+                "✅ По вашей реферальной ссылке перешли!\n"
+                "Вам начислено <b>+3 дня</b> подписки.",
+                parse_mode=ParseMode.HTML,
+            )
+        except Exception:
+            logger.debug("referrer notify failed", exc_info=True)
     else:
         await cb.message.answer(
             "Реферальный бонус уже был получен ранее или сейчас недоступен.",
             parse_mode=ParseMode.HTML,
         )
+
     await _deliver_welcome(cb.bot, cb.message.chat.id)
 
 
@@ -382,7 +517,7 @@ async def show_referrals(cb: CallbackQuery):
         f'{tg(E.MONEY, "🪙")} <b>Реферальная система</b>\n\n'
         "Приглашайте друзей и получайте бонусы.\n\n"
         f"Ваша ссылка: {escape(invite_link)}\n\n"
-        "Отправьте ссылку другу – Вы сами получите 6 дней подписки, а друг 3 дня"
+        "Отправьте ссылку другу — Вы и друг получите по 3 дня подписки"
     )
     await _safe_edit_message(cb, text, reply_markup=markup_back_main_only(), parse_mode="HTML")
     await cb.answer()

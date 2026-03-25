@@ -21,6 +21,7 @@ SUPPORT_USERNAME = os.getenv("SUPPORT_USERNAME", "@JetHelper")
 # Обязательная подписка для выдачи реферального бонуса
 SUBSCRIBE_CHANNEL_USERNAME = os.getenv("SUBSCRIBE_CHANNEL_USERNAME", "ezstar_tg")
 SUBSCRIBE_CHANNEL_URL = os.getenv("SUBSCRIBE_CHANNEL_URL", "https://t.me/ezstar_tg")
+SUBSCRIBE_CHANNEL_ID = os.getenv("SUBSCRIBE_CHANNEL_ID", "").strip()
 # Юридические документы (Telegraph)
 PRIVACY_POLICY_URL = os.getenv(
     "PRIVACY_POLICY_URL",
