@@ -395,11 +395,11 @@ def _deep_link_for_app(app: str, sub_url: str) -> str:
 
     sub_url_encoded = urllib.parse.quote(sub_url, safe="")
     if app == "v2raytun":
-        return f"v2raytun://import/{sub_url}"
+        return f"v2raytun://import/{sub_url_encoded}"
     if app == "happ":
         return f"happ://import/{sub_url_encoded}"
     if app == "hiddify":
-        return f"hiddify://import/{sub_url}#JetVPN"
+        return f"hiddify://import/{sub_url_encoded}#JetVPN"
     raise ValueError(app)
 
 

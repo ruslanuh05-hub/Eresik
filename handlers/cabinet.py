@@ -21,8 +21,7 @@ from aiogram.filters import Command
 
 from database import (
     get_or_create_user,
-    count_active_devices,
-    list_devices_by_telegram_id,
+    list_active_devices_by_telegram_id,
     create_device_slot,
     disable_device_by_id,
 )
@@ -314,7 +313,8 @@ def my_subscriptions_actions_keyboard(is_active: bool) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="Купить подписку",
                     callback_data="buy_sub:subs",
-                    icon_custom_emoji_id=E.GIFT,
+                    # Премиум-иконка "монетки" для покупки.
+                    icon_custom_emoji_id=E.MONEY,
                 )
             ]
         )
@@ -741,27 +741,24 @@ async def _render_devices_menu(cb: CallbackQuery) -> None:
         )
         return
 
-    devices = await list_devices_by_telegram_id(uid, limit=4)
-    active_count = await count_active_devices(uid)
+    devices = await list_active_devices_by_telegram_id(uid, limit=4)
+    active_count = len(devices)
 
     text = "📱 <b>Устройства</b>\n\n"
     text += f"Активных: {active_count}/4\n"
     if not devices:
-        text += "\nПока нет устройств. Нажмите «Выбор подключения» для добавления устройств."
+        text += "\nПока нет активных устройств. Нажмите «Выбор подключения» для добавления устройств."
 
     kb_rows: list[list[InlineKeyboardButton]] = []
     for d in devices:
         did = int(d.get("id") or 0)
         platform = d.get("platform") or "device"
         created_at = d.get("created_at")
-        disabled = int(d.get("disabled") or 0)
-        dev_expires = int(d.get("device_expires_at") or 0)
-
-        status = "🟢 Активно" if (disabled == 0 and dev_expires > now) else "⚪️ Отключено/истекло"
+        # Здесь только активные устройства, поэтому disabled/expiry не требуются для UI.
         created_s = _format_date(int(created_at)) if created_at else "—"
-        text += f"\n\n{_platform_title(platform)}\n{status}\nСоздано: {created_s}"
+        text += f"\n\n{_platform_title(platform)}\nСоздано: {created_s}"
 
-        if disabled == 0 and dev_expires > now and did:
+        if did:
             kb_rows.append(
                 [
                     InlineKeyboardButton(

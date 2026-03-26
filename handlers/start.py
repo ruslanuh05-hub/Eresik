@@ -14,6 +14,9 @@ from aiogram.types import (
     FSInputFile,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
+    InlineQuery,
+    InlineQueryResultArticle,
+    InputTextMessageContent,
     ReplyKeyboardRemove,
 )
 
@@ -511,14 +514,59 @@ async def show_referrals(cb: CallbackQuery):
         f"Ваша ссылка: {escape(invite_link)}\n\n"
         "Отправьте ссылку другу — Вы и друг получите по 3 дня подписки"
     )
+
+    share_query = f"share_ref:{cb.from_user.id}"
+    share_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📩 Поделиться с другом",
+                    switch_inline_query=share_query,
+                ),
+            ],
+            row_back_main(),
+        ]
+    )
     await _safe_edit_message(
         cb,
         text,
-        reply_markup=markup_back_main_only(),
+        reply_markup=share_kb,
         parse_mode="HTML",
         photo_mode="refs",
     )
     await cb.answer()
+
+
+@router.inline_query(F.query.startswith("share_ref:"))
+async def share_ref_inline(inline_query: InlineQuery):
+    """
+    Встроенная отправка через inline mode:
+    пользователь выбирает чат/адресата сам в интерфейсе Telegram.
+    """
+    try:
+        parts = str(inline_query.query).split(":", 1)
+        if len(parts) != 2:
+            return await inline_query.answer([], cache_time=0)
+        referrer_id = int(parts[1])
+    except Exception:
+        return await inline_query.answer([], cache_time=0)
+
+    code = f"ref_{referrer_id}"
+    bot_username = (await inline_query.bot.me()).username
+    invite_link = f"https://t.me/{bot_username}?start={code}" if bot_username else "Ссылка недоступна"
+
+    msg_text = (
+        f"Приглашаю вас в JetVPN!\n\n"
+        f"Ссылка: {escape(invite_link)}\n\n"
+        "Нажмите на ссылку — и вы оба получите по 3 дня подписки."
+    )
+
+    result = InlineQueryResultArticle(
+        id="share-ref",
+        title="Поделиться реферальной ссылкой",
+        input_message_content=InputTextMessageContent(message_text=msg_text, parse_mode="HTML"),
+    )
+    await inline_query.answer([result], cache_time=0, is_personal=True)
 
 
 @router.callback_query(F.data == "instruction")

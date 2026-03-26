@@ -596,6 +596,50 @@ async def list_devices_by_telegram_id(telegram_id: int, limit: int = 20) -> list
         return [dict(r) for r in rows]
 
 
+async def list_active_devices_by_telegram_id(telegram_id: int, limit: int = 4) -> list[dict]:
+    """
+    Список только активных устройств:
+    - disabled = 0
+    - device_expires_at > now
+
+    Это важно для UI: отключённые устройства должны исчезать из списка.
+    """
+    limit = max(1, min(int(limit), 50))
+    now = _now()
+
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            rows = await conn.fetch(
+                f'''
+                SELECT * FROM "{DEVICES_TABLE}"
+                WHERE telegram_id = $1 AND disabled = 0 AND device_expires_at > $2
+                ORDER BY created_at DESC
+                LIMIT $3
+                ''',
+                telegram_id,
+                now,
+                limit,
+            )
+            return [dict(r) for r in rows]
+        finally:
+            await conn.close()
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            f'''
+            SELECT * FROM {DEVICES_TABLE}
+            WHERE telegram_id = ? AND disabled = 0 AND device_expires_at > ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            ''',
+            (telegram_id, now, limit),
+        )
+        rows = await cur.fetchall()
+        return [dict(r) for r in rows]
+
+
 async def create_device_slot(telegram_id: int, platform: str, expires_at: int, *, max_devices: int = 4) -> dict:
     """
     Создать устройство (токен) для подключения.
