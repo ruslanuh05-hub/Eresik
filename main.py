@@ -20,6 +20,7 @@ from handlers.cabinet import router as cabinet_router
 from handlers.topup import router as topup_router
 from handlers.buy import router as buy_router
 from handlers.admin import router as admin_router
+from handlers.admin_panel import router as admin_panel_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,6 +42,7 @@ async def main() -> None:
     dp.include_router(topup_router)
     dp.include_router(buy_router)
     dp.include_router(admin_router)
+    dp.include_router(admin_panel_router)
 
     @dp.error()
     async def handle_error(event: ErrorEvent) -> bool:

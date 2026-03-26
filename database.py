@@ -13,6 +13,9 @@ USERS_TABLE = "usersJvpn"
 PAYMENTS_TABLE = "paymentsJvpn"
 PURCHASES_TABLE = "purchasesJvpn"
 SETTINGS_TABLE = "settingsJvpn"
+SERVERS_TABLE = "serversJvpn"
+ADMIN_KEYS_TABLE = "adminkeysJvpn"
+BROADCASTS_TABLE = "broadcastsJvpn"
 
 USE_POSTGRES = bool(DATABASE_URL)
 
@@ -86,6 +89,41 @@ async def _init_pg() -> None:
             )
         """)
         await conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS "{SERVERS_TABLE}" (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                country_code TEXT,
+                limits INTEGER NOT NULL DEFAULT 0,
+                online_count INTEGER NOT NULL DEFAULT 0,
+                load_value INTEGER NOT NULL DEFAULT 0,
+                is_online BOOLEAN NOT NULL DEFAULT false,
+                created_at BIGINT NOT NULL
+            )
+        """)
+        await conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS "{ADMIN_KEYS_TABLE}" (
+                id SERIAL PRIMARY KEY,
+                key_value TEXT NOT NULL UNIQUE,
+                owner_telegram_id BIGINT,
+                expires_at BIGINT,
+                traffic_limit_bytes BIGINT,
+                traffic_used_bytes BIGINT NOT NULL DEFAULT 0,
+                created_at BIGINT NOT NULL
+            )
+        """)
+        await conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS "{BROADCASTS_TABLE}" (
+                id SERIAL PRIMARY KEY,
+                created_by BIGINT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'draft',
+                message_text TEXT NOT NULL,
+                buttons_json TEXT,
+                scheduled_at BIGINT,
+                sent_at BIGINT,
+                created_at BIGINT NOT NULL
+            )
+        """)
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_payments_order_Jvpn 
             ON "{PAYMENTS_TABLE}" (freekassa_order_id)
         """)
@@ -148,6 +186,41 @@ async def _init_sqlite() -> None:
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL,
                 updated_at INTEGER NOT NULL
+            )
+        """)
+        await db.execute(f"""
+            CREATE TABLE IF NOT EXISTS {SERVERS_TABLE} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                country_code TEXT,
+                limits INTEGER NOT NULL DEFAULT 0,
+                online_count INTEGER NOT NULL DEFAULT 0,
+                load_value INTEGER NOT NULL DEFAULT 0,
+                is_online INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL
+            )
+        """)
+        await db.execute(f"""
+            CREATE TABLE IF NOT EXISTS {ADMIN_KEYS_TABLE} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key_value TEXT NOT NULL UNIQUE,
+                owner_telegram_id INTEGER,
+                expires_at INTEGER,
+                traffic_limit_bytes INTEGER,
+                traffic_used_bytes INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL
+            )
+        """)
+        await db.execute(f"""
+            CREATE TABLE IF NOT EXISTS {BROADCASTS_TABLE} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_by INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'draft',
+                message_text TEXT NOT NULL,
+                buttons_json TEXT,
+                scheduled_at INTEGER,
+                sent_at INTEGER,
+                created_at INTEGER NOT NULL
             )
         """)
         await db.execute(f"CREATE INDEX IF NOT EXISTS idx_payments_order_Jvpn ON {PAYMENTS_TABLE}(freekassa_order_id)")
@@ -341,6 +414,106 @@ async def get_user_by_telegram_id(telegram_id: int) -> Optional[dict]:
             )
             row = await cur.fetchone()
             return dict(row) if row else None
+
+
+async def get_user_by_username(username: str) -> Optional[dict]:
+    """Поиск пользователя по username (без @)."""
+    username = (username or "").strip()
+    if username.startswith("@"):
+        username = username[1:]
+    if not username:
+        return None
+
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            row = await conn.fetchrow(f'SELECT * FROM "{USERS_TABLE}" WHERE username = $1', username)
+            return dict(row) if row else None
+        finally:
+            await conn.close()
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(f"SELECT * FROM {USERS_TABLE} WHERE username = ?", (username,))
+        row = await cur.fetchone()
+        return dict(row) if row else None
+
+
+async def list_users(limit: int = 50) -> list[dict]:
+    """Список пользователей (для админа)."""
+    limit = max(1, min(int(limit), 200))
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            rows = await conn.fetch(
+                f'SELECT * FROM "{USERS_TABLE}" ORDER BY created_at DESC LIMIT $1',
+                limit,
+            )
+            return [dict(r) for r in rows]
+        finally:
+            await conn.close()
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(f"SELECT * FROM {USERS_TABLE} ORDER BY created_at DESC LIMIT ?", (limit,))
+        rows = await cur.fetchall()
+        return [dict(r) for r in rows]
+
+
+async def count_users() -> int:
+    """Общее количество пользователей в БД."""
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            total = await conn.fetchval(f'SELECT COUNT(1) FROM "{USERS_TABLE}"')
+            return int(total or 0)
+        finally:
+            await conn.close()
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(f"SELECT COUNT(1) FROM {USERS_TABLE}")
+        row = await cur.fetchone()
+        return int(row[0] or 0) if row else 0
+
+
+async def list_user_ids(limit: int = 500, offset: int = 0) -> list[int]:
+    """
+    Порция telegram_id для рассылки.
+
+    Используется чтобы отправлять "всех" без загрузки всей таблицы в память.
+    """
+    limit = max(1, min(int(limit), 2000))
+    offset = max(0, int(offset))
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            rows = await conn.fetch(
+                f'SELECT telegram_id FROM "{USERS_TABLE}" ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+                limit,
+                offset,
+            )
+            return [int(r["telegram_id"]) for r in rows]
+        finally:
+            await conn.close()
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            f"SELECT telegram_id FROM {USERS_TABLE} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (limit, offset),
+        )
+        rows = await cur.fetchall()
+        return [int(r[0]) for r in rows]
+
+
+async def reset_subscription_token(telegram_id: int) -> str:
+    """Сбросить токен подписки для пользователя."""
+    token = _create_token()
+    await update_user(telegram_id, subscription_token=token)
+    return token
+
+
+async def block_subscription(telegram_id: int) -> None:
+    """Блокировать подписку: сбросить expire и обновить токен."""
+    token = await reset_subscription_token(telegram_id)
+    await update_user(telegram_id, subscription_expires_at=0, subscription_token=token)
 
 
 async def create_or_extend_subscription(telegram_id: int, days: int, plan_id: str, cost: float) -> tuple[str, int]:
@@ -672,6 +845,171 @@ async def update_payment_status_by_order_id(order_id: str, status: str, freekass
             else:
                 await db.execute(f"UPDATE {PAYMENTS_TABLE} SET status = ? WHERE order_id = ?", (status, order_id))
             await db.commit()
+
+
+async def get_payment_by_id(payment_id: int) -> Optional[dict]:
+    """Получить платеж по id (для админки)."""
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            row = await conn.fetchrow(f'SELECT * FROM "{PAYMENTS_TABLE}" WHERE id = $1', payment_id)
+            return dict(row) if row else None
+        finally:
+            await conn.close()
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(f"SELECT * FROM {PAYMENTS_TABLE} WHERE id = ?", (payment_id,))
+        row = await cur.fetchone()
+        return dict(row) if row else None
+
+
+async def list_payments(limit: int = 20, status: str | None = None) -> list[dict]:
+    """Список платежей (для админки)."""
+    limit = max(1, min(int(limit), 100))
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            if status:
+                rows = await conn.fetch(
+                    f'SELECT * FROM "{PAYMENTS_TABLE}" WHERE status = $1 ORDER BY created_at DESC LIMIT $2',
+                    status,
+                    limit,
+                )
+            else:
+                rows = await conn.fetch(
+                    f'SELECT * FROM "{PAYMENTS_TABLE}" ORDER BY created_at DESC LIMIT $1',
+                    limit,
+                )
+            return [dict(r) for r in rows]
+        finally:
+            await conn.close()
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if status:
+            cur = await db.execute(
+                f"SELECT * FROM {PAYMENTS_TABLE} WHERE status = ? ORDER BY created_at DESC LIMIT ?",
+                (status, limit),
+            )
+        else:
+            cur = await db.execute(f"SELECT * FROM {PAYMENTS_TABLE} ORDER BY created_at DESC LIMIT ?", (limit,))
+        rows = await cur.fetchall()
+        return [dict(r) for r in rows]
+
+
+async def update_payment_status_by_id(payment_id: int, status: str) -> None:
+    """Обновить статус платежа по id (админка)."""
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            await conn.execute(f'UPDATE "{PAYMENTS_TABLE}" SET status = $1 WHERE id = $2', status, payment_id)
+        finally:
+            await conn.close()
+    else:
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(f"UPDATE {PAYMENTS_TABLE} SET status = ? WHERE id = ?", (status, payment_id))
+            await db.commit()
+
+
+async def list_servers(limit: int = 50) -> list[dict]:
+    """Список серверов (для админки)."""
+    limit = max(1, min(int(limit), 200))
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            rows = await conn.fetch(
+                f'SELECT * FROM "{SERVERS_TABLE}" ORDER BY created_at DESC LIMIT $1',
+                limit,
+            )
+            return [dict(r) for r in rows]
+        finally:
+            await conn.close()
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            f"SELECT * FROM {SERVERS_TABLE} ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        )
+        rows = await cur.fetchall()
+        return [dict(r) for r in rows]
+
+
+async def list_admin_keys(limit: int = 50) -> list[dict]:
+    """Список ключей админ-доступа (абстракция в БД)."""
+    limit = max(1, min(int(limit), 200))
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            rows = await conn.fetch(
+                f'SELECT * FROM "{ADMIN_KEYS_TABLE}" ORDER BY created_at DESC LIMIT $1',
+                limit,
+            )
+            return [dict(r) for r in rows]
+        finally:
+            await conn.close()
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            f"SELECT * FROM {ADMIN_KEYS_TABLE} ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        )
+        rows = await cur.fetchall()
+        return [dict(r) for r in rows]
+
+
+async def get_admin_stats() -> dict:
+    """Сводка для админки."""
+    now = _now()
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            active_users = await conn.fetchval(
+                f'SELECT COUNT(1) FROM "{USERS_TABLE}" WHERE subscription_expires_at IS NOT NULL AND subscription_expires_at > $1',
+                now,
+            )
+            total_users = await conn.fetchval(f'SELECT COUNT(1) FROM "{USERS_TABLE}"')
+            revenue_completed = await conn.fetchval(
+                f'SELECT COALESCE(SUM(amount), 0) FROM "{PAYMENTS_TABLE}" WHERE status = $1',
+                "completed",
+            )
+            revenue_pending = await conn.fetchval(
+                f'SELECT COALESCE(SUM(amount), 0) FROM "{PAYMENTS_TABLE}" WHERE status = $1',
+                "pending",
+            )
+            servers_online = await conn.fetchval(
+                f'SELECT COALESCE(SUM(CASE WHEN is_online THEN 1 ELSE 0 END), 0) FROM "{SERVERS_TABLE}"',
+            )
+            return {
+                "total_users": int(total_users or 0),
+                "active_users": int(active_users or 0),
+                "revenue_completed": float(revenue_completed or 0),
+                "revenue_pending": float(revenue_pending or 0),
+                "servers_online": int(servers_online or 0),
+            }
+        finally:
+            await conn.close()
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            f"SELECT COUNT(1) FROM {USERS_TABLE} WHERE subscription_expires_at IS NOT NULL AND subscription_expires_at > ?",
+            (now,),
+        )
+        active_users = (await cur.fetchone())[0]
+        cur = await db.execute(f"SELECT COUNT(1) FROM {USERS_TABLE}")
+        total_users = (await cur.fetchone())[0]
+        cur = await db.execute(f"SELECT COALESCE(SUM(amount), 0) FROM {PAYMENTS_TABLE} WHERE status = ?", ("completed",))
+        revenue_completed = (await cur.fetchone())[0]
+        cur = await db.execute(f"SELECT COALESCE(SUM(amount), 0) FROM {PAYMENTS_TABLE} WHERE status = ?", ("pending",))
+        revenue_pending = (await cur.fetchone())[0]
+        cur = await db.execute(f"SELECT COUNT(1) FROM {SERVERS_TABLE} WHERE is_online = 1")
+        servers_online = (await cur.fetchone())[0]
+        return {
+            "total_users": int(total_users or 0),
+            "active_users": int(active_users or 0),
+            "revenue_completed": float(revenue_completed or 0),
+            "revenue_pending": float(revenue_pending or 0),
+            "servers_online": int(servers_online or 0),
+        }
 
 
 async def update_payment_status(freekassa_order_id: str, status: str) -> None:

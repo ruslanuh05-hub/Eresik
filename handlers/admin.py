@@ -41,18 +41,10 @@ def admin_keyboard():
 
 @router.message(Command("admin"), AdminFilter())
 async def cmd_admin(msg: Message):
-    price = await get_price_per_day()
-    plans = await get_plans()
-    month_price = round(30 * price)
-    text = (
-        "⚙️ <b>Админ-панель</b>\n\n"
-        f"Цена за 1 день: <b>{price:.2f} ₽</b>\n"
-        f"(30 дней = {month_price} ₽)\n\n"
-        "<b>Текущие тарифы:</b>\n"
-    )
-    for p in plans:
-        text += f"• {escape(p['title'])} — {p['price']} ₽\n"
-    await msg.answer(text, parse_mode="HTML", reply_markup=admin_keyboard())
+    # `/admin` теперь открывает вашу расширенную админ-панель (а редактирование цены доступно в разделе "Настройки").
+    from handlers.admin_panel import admin_main_keyboard
+
+    await msg.answer("🔧 Админ-панель", reply_markup=admin_main_keyboard())
 
 
 @router.callback_query(F.data == "admin:price", AdminFilter())

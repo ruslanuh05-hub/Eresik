@@ -28,6 +28,49 @@ from database import (
 )
 from freekassa import verify_callback
 
+HAPP_CRYPTO_API = "https://crypto.happ.su/api-v2.php"
+_HAPP_CRYPTO_CACHE: dict[str, tuple[str, float]] = {}
+
+
+async def _happ_encrypt_subscription_url(sub_url: str) -> str:
+    """
+    Вернуть зашифрованную ссылку для Happ.
+
+    API: POST https://crypto.happ.su/api-v2.php с JSON {"url":"https://..."}
+    В результате получаем строку с happ://crypt4/... или happ://crypt5/...
+    """
+    now = time.time()
+    cached = _HAPP_CRYPTO_CACHE.get(sub_url)
+    if cached and now - cached[1] < 300:  # 5 минут
+        return cached[0]
+
+    async with httpx.AsyncClient(timeout=12.0) as client:
+        resp = await client.post(
+            HAPP_CRYPTO_API,
+            json={"url": sub_url},
+            headers={"Content-Type": "application/json"},
+        )
+        resp.raise_for_status()
+        # API может вернуть либо JSON, либо plain text.
+        encrypted: str = ""
+        try:
+            data = resp.json()
+            if isinstance(data, dict):
+                encrypted = (
+                    str(data.get("url") or data.get("result") or data.get("data") or "").strip()
+                )
+            elif isinstance(data, str):
+                encrypted = data.strip()
+        except Exception:
+            encrypted = resp.text.strip().strip('"')
+
+    if not encrypted:
+        # Fallback: если вдруг API вернул пусто — вернём исходную ссылку
+        encrypted = sub_url
+
+    _HAPP_CRYPTO_CACHE[sub_url] = (encrypted, now)
+    return encrypted
+
 SUB_PROFILE_TITLE = "👾 JetVPN"
 SUB_SUPPORT_URL = "https://t.me/ezstar_tg"
 SUB_DESCRIPTION_LINES = [
@@ -200,7 +243,12 @@ async def subscription_handler(request: web.Request) -> web.Response:
         is_browser = ("mozilla" in user_agent) and ("happ" not in user_agent) and ("hiddify" not in user_agent) and ("v2raytun" not in user_agent)
         if is_browser:
             sub_url = str(request.url)
-            happ_link = f"happ://import/{urllib.parse.quote(sub_url, safe='')}"
+            try:
+                happ_sub_encrypted = await _happ_encrypt_subscription_url(sub_url)
+                happ_link = _deep_link_for_app("happ", happ_sub_encrypted)
+            except Exception:
+                logger.exception("happ encrypt failed, fallback plain")
+                happ_link = f"happ://import/{urllib.parse.quote(sub_url, safe='')}"
             hiddify_link = f"hiddify://import/{sub_url}#JetVPN"
             v2raytun_link = f"v2raytun://import/{sub_url}"
             tg_id = sub.get("telegram_id")
@@ -341,11 +389,14 @@ def _validate_subscription_url(u: str) -> bool:
 
 def _deep_link_for_app(app: str, sub_url: str) -> str:
     """Deep link для открытия приложения с импортом подписки."""
+    # Если нам уже отдали готовую crypt-ссылку Happ, её нельзя оборачивать в import.
+    if app == "happ" and sub_url.startswith("happ://crypt"):
+        return sub_url
+
     sub_url_encoded = urllib.parse.quote(sub_url, safe="")
     if app == "v2raytun":
         return f"v2raytun://import/{sub_url}"
     if app == "happ":
-        # Для Happ используем URL-encoded путь: так чаще корректно парсится import.
         return f"happ://import/{sub_url_encoded}"
     if app == "hiddify":
         return f"hiddify://import/{sub_url}#JetVPN"
@@ -366,7 +417,12 @@ async def open_import_handler(request: web.Request) -> web.Response:
         return web.Response(status=400, text="Invalid subscription URL")
 
     try:
-        deep = _deep_link_for_app(app, u)
+        if app == "happ":
+            # happ предпочитает криптоссылку; шифруем адрес подписки.
+            encrypted = await _happ_encrypt_subscription_url(u)
+            deep = _deep_link_for_app(app, encrypted)
+        else:
+            deep = _deep_link_for_app(app, u)
     except ValueError:
         return web.Response(status=404, text="Not found")
 
