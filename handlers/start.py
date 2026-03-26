@@ -344,11 +344,16 @@ async def subgate_confirm(cb: CallbackQuery, state: FSMContext):
 
 @router.message(F.text.startswith("/"))
 async def ignore_other_commands(msg: Message):
-    """Бот реагирует только на /start; остальные команды игнорируем."""
+    """
+    Бот реагирует только на /start в пользовательской части.
+
+    Важно: /admin и /adminpanel должны обрабатываться админскими роутерами,
+    поэтому здесь их НЕ перехватываем.
+    """
     if not msg.text:
         return
     cmd = msg.text.split()[0].lower()
-    if cmd == "/start":
+    if cmd in {"/start", "/admin", "/adminpanel"}:
         return
     # deliberately do nothing
 

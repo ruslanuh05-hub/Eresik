@@ -32,6 +32,9 @@ def create_payment_url(amount: float, order_id: str, telegram_id: int) -> Option
         "oa": f"{amount:.2f}",
         "o": order_id,
         "s": sign,
+        # У FreeKassa для формы pay.fk.money в примерах используется pay=PAY.
+        # Без этого параметра некоторые магазины/настройки не открывают форму оплаты.
+        "pay": "PAY",
         "currency": "RUB",
         "lang": "ru",
         "us_telegram_id": str(telegram_id),
