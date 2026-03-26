@@ -146,7 +146,12 @@ def _plain_back_btn(callback_data: str, text: str = "Назад") -> InlineKeybo
     return InlineKeyboardButton(text=text, callback_data=callback_data, icon_custom_emoji_id=E.BACKARROW)
 
 
-def device_selection_keyboard(*, has_sub_url: bool = False, back_callback: str = "my_subscriptions") -> InlineKeyboardMarkup:
+def device_selection_keyboard(
+    *,
+    has_sub_url: bool = False,
+    back_callback: str = "my_subscriptions",
+    show_devices_btn: bool = False,
+) -> InlineKeyboardMarkup:
     """Шаг 1: выбор устройства (Android | iOS / ПК)."""
     rows = [
         [
@@ -179,6 +184,8 @@ def device_selection_keyboard(*, has_sub_url: bool = False, back_callback: str =
                 )
             ]
         )
+    if show_devices_btn:
+        rows.append([InlineKeyboardButton(text="📱 Устройства", callback_data="devices:menu")])
     rows.append([_plain_back_btn(back_callback, "Назад")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -812,7 +819,7 @@ async def handle_subdev_step(cb: CallbackQuery):
         await _send_subs_screen(
             cb,
             text,
-            device_selection_keyboard(has_sub_url=False, back_callback="my_subscriptions"),
+            device_selection_keyboard(has_sub_url=True, back_callback="my_subscriptions", show_devices_btn=True),
             parse_mode="HTML",
         )
         return
@@ -821,46 +828,45 @@ async def handle_subdev_step(cb: CallbackQuery):
     if platform not in ("android", "ios", "pc"):
         await cb.answer()
         return
+    try:
+        user = await get_or_create_user(cb.from_user.id)
+        expires_at = user.get("subscription_expires_at")
+        now = int(time_module.time())
+        if not (expires_at and expires_at > now):
+            await cb.answer("Подписка не активна", show_alert=True)
+            return
 
+        await cb.answer()
+        # Создаём токен "устройства" и используем его для импорта.
         try:
-            user = await get_or_create_user(cb.from_user.id)
-            expires_at = user.get("subscription_expires_at")
-            now = int(time_module.time())
-            if not (expires_at and expires_at > now):
-                await cb.answer("Подписка не активна", show_alert=True)
-                return
+            device = await create_device_slot(cb.from_user.id, platform, int(expires_at), max_devices=4)
+        except ValueError as e:
+            await cb.bot.send_message(
+                cb.from_user.id,
+                f"{str(e)}\n\nОткройте список устройств и отключите одно из них.",
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [InlineKeyboardButton(text="📱 Устройства", callback_data="devices:menu")],
+                        [back_btn(callback_data="my_subscriptions", text="Назад")],
+                    ]
+                ),
+            )
+            return
 
-            await cb.answer()
-            # Создаём токен "устройства" и используем его для импорта.
-            try:
-                device = await create_device_slot(cb.from_user.id, platform, int(expires_at), max_devices=4)
-            except ValueError as e:
-                await cb.bot.send_message(
-                    cb.from_user.id,
-                    f"{str(e)}\n\nОткройте список устройств и отключите одно из них.",
-                    reply_markup=InlineKeyboardMarkup(
-                        inline_keyboard=[
-                            [InlineKeyboardButton(text="📱 Устройства", callback_data="devices:menu")],
-                            [back_btn(callback_data="my_subscriptions", text="Назад")],
-                        ]
-                    ),
-                )
-                return
-
-            device_token = str(device.get("device_token") or "")
-            device_sub_url = _sub_url_for_token(device_token)
-            text = build_my_subscriptions_text(int(expires_at), platform=platform)
-            kb = await app_import_keyboard(platform, device_sub_url)
-            await _send_subs_screen(cb, text, kb, parse_mode="HTML")
+        device_token = str(device.get("device_token") or "")
+        device_sub_url = _sub_url_for_token(device_token)
+        text = build_my_subscriptions_text(int(expires_at), platform=platform)
+        kb = await app_import_keyboard(platform, device_sub_url)
+        await _send_subs_screen(cb, text, kb, parse_mode="HTML")
+    except Exception:
+        logger.exception("handle_subdev_step failed")
+        try:
+            await cb.bot.send_message(
+                cb.from_user.id,
+                "Не удалось открыть экран. Проверьте, что подписка активна, и попробуйте /sub.",
+            )
         except Exception:
-            logger.exception("handle_subdev_step failed")
-            try:
-                await cb.bot.send_message(
-                    cb.from_user.id,
-                    "Не удалось открыть экран. Проверьте, что подписка активна, и попробуйте /sub.",
-                )
-            except Exception:
-                pass
+            pass
 
 
 @router.callback_query(F.data == "sub:copy_link")
@@ -868,12 +874,38 @@ async def copy_subscription_link(cb: CallbackQuery):
     """Отправить персональную ссылку подписки для копирования."""
     await cb.answer()
     try:
-        personal_sub_url = await _sub_url_for_user(cb.from_user.id)
-        if not personal_sub_url:
+        uid = cb.from_user.id
+        user = await get_or_create_user(uid)
+        expires_at = user.get("subscription_expires_at")
+        now = int(time_module.time())
+        if not (expires_at and expires_at > now):
             await cb.answer("Подписка не активна", show_alert=True)
             return
+
+        # Важно: чтобы отключение устройств работало, копируем ссылку именно "устройства",
+        # а не общую subscription_token.
+        try:
+            device = await create_device_slot(uid, "device", int(expires_at), max_devices=4)
+        except ValueError as e:
+            await cb.bot.send_message(
+                uid,
+                f"{str(e)}\n\nОткройте список устройств и отключите одно из них.",
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [InlineKeyboardButton(text="📱 Устройства", callback_data="devices:menu")],
+                        [back_btn(callback_data="my_subscriptions", text="Назад")],
+                    ]
+                ),
+            )
+            return
+
+        device_token = str(device.get("device_token") or "")
+        personal_sub_url = _sub_url_for_token(device_token)
+        if not personal_sub_url:
+            await cb.answer("Не удалось сформировать ссылку", show_alert=True)
+            return
         await cb.bot.send_message(
-            cb.from_user.id,
+            uid,
             "📋 <b>Ссылка для подключения</b>\n\n"
             "Скопируйте ссылку ниже:\n"
             f"<code>{escape(personal_sub_url)}</code>",
