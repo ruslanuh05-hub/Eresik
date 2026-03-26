@@ -8,7 +8,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from database import get_or_create_user, add_payment, add_balance
-from freekassa import create_payment_url
+from freekassa import create_payment_url_any
 from config import FREKASSA_SHOP_ID, PUBLIC_BASE_URL, ADMIN_IDS
 from tgemoji import E, tg
 from handlers.keyboards_common import back_btn, row_back_main
@@ -169,7 +169,7 @@ async def process_topup(cb: CallbackQuery, telegram_id: int, amount: float):
         return
 
     order_id = f"jvpn_{telegram_id}_{int(time.time())}"
-    url = create_payment_url(amount, order_id, telegram_id)
+    url = await create_payment_url_any(amount, order_id, telegram_id)
     if not url:
         await _safe_edit_message(
             cb.message,
@@ -208,7 +208,7 @@ async def do_send_payment_link(msg: Message, telegram_id: int, amount: float):
         return
 
     order_id = f"jvpn_{telegram_id}_{int(time.time())}"
-    url = create_payment_url(amount, order_id, telegram_id)
+    url = await create_payment_url_any(amount, order_id, telegram_id)
     if not url:
         await msg.answer("⚠️ Ошибка создания платежа.")
         return

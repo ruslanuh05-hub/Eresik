@@ -59,6 +59,10 @@ DB_PATH = DATA_DIR / "jvpn_bot.db"
 FREKASSA_SHOP_ID = os.getenv("FREKASSA_SHOP_ID", "")
 FREKASSA_SECRET_1 = os.getenv("FREKASSA_SECRET_1", "")
 FREKASSA_SECRET_2 = os.getenv("FREKASSA_SECRET_2", "")
+# API (https://api.fk.life/v1/)
+FREKASSA_API_KEY = os.getenv("FREKASSA_API_KEY", "").strip()
+# ID платежной системы (параметр i в /orders/create). Должен быть включён в магазине FreeKassa.
+FREKASSA_PAYMENT_SYSTEM_ID = int(os.getenv("FREKASSA_PAYMENT_SYSTEM_ID", "13").strip() or "13")
 
 # URL для callback FreeKassa (должен быть публичный, например https://yourdomain.com)
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")

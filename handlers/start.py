@@ -342,19 +342,14 @@ async def subgate_confirm(cb: CallbackQuery, state: FSMContext):
     await _deliver_welcome(cb.bot, cb.message.chat.id)
 
 
-@router.message(F.text.startswith("/"))
+@router.message(
+    F.text.startswith("/")
+    & ~F.text.startswith("/start")
+    & ~F.text.startswith("/admin")
+    & ~F.text.startswith("/adminpanel")
+)
 async def ignore_other_commands(msg: Message):
-    """
-    Бот реагирует только на /start в пользовательской части.
-
-    Важно: /admin и /adminpanel должны обрабатываться админскими роутерами,
-    поэтому здесь их НЕ перехватываем.
-    """
-    if not msg.text:
-        return
-    cmd = msg.text.split()[0].lower()
-    if cmd in {"/start", "/admin", "/adminpanel"}:
-        return
+    """Глушим неизвестные команды, но не трогаем /start и админские команды."""
     # deliberately do nothing
 
 
