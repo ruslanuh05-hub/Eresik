@@ -690,14 +690,22 @@ async def create_device_slot(telegram_id: int, platform: str, expires_at: int, *
 
 
 async def disable_device_by_id(telegram_id: int, device_id: int) -> bool:
-    """Отключить устройство: делаем токен невалидным (expires_at=0)."""
+    """
+    Отключить устройство: делаем токен невалидным (expires_at в прошлом).
+
+    Важно: некоторые клиенты могут трактовать `expire=0` как "нет срока".
+    Поэтому ставим истечение в прошлом (now-60).
+    """
+    now = _now()
+    expired_at = max(1, now - 60)
     if USE_POSTGRES:
         conn = await asyncpg.connect(_pg_url())
         try:
             res = await conn.execute(
-                f'UPDATE "{DEVICES_TABLE}" SET disabled = 1, device_expires_at = 0 WHERE id = $1 AND telegram_id = $2',
+                f'UPDATE "{DEVICES_TABLE}" SET disabled = 1, device_expires_at = $3 WHERE id = $1 AND telegram_id = $2',
                 device_id,
                 telegram_id,
+                expired_at,
             )
             # asyncpg returns like: "UPDATE <n>"
             tail = str(res).strip().split(" ", 1)[-1]
@@ -707,8 +715,8 @@ async def disable_device_by_id(telegram_id: int, device_id: int) -> bool:
 
     async with aiosqlite.connect(DB_PATH) as db:
         cur = await db.execute(
-            f'UPDATE {DEVICES_TABLE} SET disabled = 1, device_expires_at = 0 WHERE id = ? AND telegram_id = ?',
-            (device_id, telegram_id),
+            f'UPDATE {DEVICES_TABLE} SET disabled = 1, device_expires_at = ? WHERE id = ? AND telegram_id = ?',
+            (expired_at, device_id, telegram_id),
         )
         await db.commit()
         return int(cur.rowcount or 0) > 0
@@ -726,20 +734,23 @@ async def block_subscription(telegram_id: int) -> None:
     token = await reset_subscription_token(telegram_id)
     await update_user(telegram_id, subscription_expires_at=0, subscription_token=token)
     # Блокировка подписки должна деактивировать устройства пользователя.
+    now = _now()
+    expired_at = max(1, now - 60)
     if USE_POSTGRES:
         conn = await asyncpg.connect(_pg_url())
         try:
             await conn.execute(
-                f'UPDATE "{DEVICES_TABLE}" SET disabled = 1, device_expires_at = 0 WHERE telegram_id = $1',
+                f'UPDATE "{DEVICES_TABLE}" SET disabled = 1, device_expires_at = $2 WHERE telegram_id = $1',
                 telegram_id,
+                expired_at,
             )
         finally:
             await conn.close()
     else:
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
-                f'UPDATE {DEVICES_TABLE} SET disabled = 1, device_expires_at = 0 WHERE telegram_id = ?',
-                (telegram_id,),
+                f'UPDATE {DEVICES_TABLE} SET disabled = 1, device_expires_at = ? WHERE telegram_id = ?',
+                (expired_at, telegram_id),
             )
             await db.commit()
 

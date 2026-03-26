@@ -785,7 +785,6 @@ async def devices_menu(cb: CallbackQuery):
 
 @router.callback_query(F.data.startswith("devices:disable:"))
 async def devices_disable(cb: CallbackQuery):
-    await cb.answer()
     try:
         uid = cb.from_user.id
         parts = str(cb.data).split(":", 2)
@@ -794,9 +793,14 @@ async def devices_disable(cb: CallbackQuery):
             await cb.message.edit_text("Некорректный ID устройства.", reply_markup=my_subscriptions_actions_keyboard(is_active=True))
             return
         await disable_device_by_id(uid, device_id)
+        # UI обновляем после отключения устройства.
         await _render_devices_menu(cb)
     except Exception:
         logger.exception("devices_disable failed")
+        try:
+            await cb.answer()
+        except Exception:
+            pass
         await cb.bot.send_message(cb.from_user.id, "Не удалось отключить устройство.")
 
 
