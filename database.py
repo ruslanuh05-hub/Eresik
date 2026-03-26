@@ -16,6 +16,7 @@ SETTINGS_TABLE = "settingsJvpn"
 SERVERS_TABLE = "serversJvpn"
 ADMIN_KEYS_TABLE = "adminkeysJvpn"
 BROADCASTS_TABLE = "broadcastsJvpn"
+DEVICES_TABLE = "devicesJvpn"
 
 USE_POSTGRES = bool(DATABASE_URL)
 
@@ -124,6 +125,19 @@ async def _init_pg() -> None:
             )
         """)
         await conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS "{DEVICES_TABLE}" (
+                id SERIAL PRIMARY KEY,
+                telegram_id BIGINT NOT NULL,
+                platform TEXT NOT NULL,
+                device_token TEXT NOT NULL UNIQUE,
+                device_expires_at BIGINT,
+                disabled INTEGER NOT NULL DEFAULT 0,
+                created_at BIGINT NOT NULL
+            )
+        """)
+        await conn.execute(f'CREATE INDEX IF NOT EXISTS idx_devices_user_Jvpn ON "{DEVICES_TABLE}" (telegram_id)')
+        await conn.execute(f'CREATE INDEX IF NOT EXISTS idx_devices_token_Jvpn ON "{DEVICES_TABLE}" (device_token)')
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_payments_order_Jvpn 
             ON "{PAYMENTS_TABLE}" (freekassa_order_id)
         """)
@@ -223,6 +237,19 @@ async def _init_sqlite() -> None:
                 created_at INTEGER NOT NULL
             )
         """)
+        await db.execute(f"""
+            CREATE TABLE IF NOT EXISTS {DEVICES_TABLE} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER NOT NULL,
+                platform TEXT NOT NULL,
+                device_token TEXT NOT NULL UNIQUE,
+                device_expires_at INTEGER,
+                disabled INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL
+            )
+        """)
+        await db.execute(f"CREATE INDEX IF NOT EXISTS idx_devices_user_Jvpn ON {DEVICES_TABLE} (telegram_id)")
+        await db.execute(f"CREATE INDEX IF NOT EXISTS idx_devices_token_Jvpn ON {DEVICES_TABLE} (device_token)")
         await db.execute(f"CREATE INDEX IF NOT EXISTS idx_payments_order_Jvpn ON {PAYMENTS_TABLE}(freekassa_order_id)")
         await db.execute(f"CREATE INDEX IF NOT EXISTS idx_payments_merchant_order_Jvpn ON {PAYMENTS_TABLE}(order_id)")
         cur = await db.execute(f'SELECT 1 FROM {SETTINGS_TABLE} WHERE key = ?', ("price_per_day",))
@@ -375,6 +402,14 @@ async def get_subscription_record_by_token(token: str) -> Optional[dict]:
         conn = await asyncpg.connect(_pg_url())
         try:
             row = await conn.fetchrow(
+                f'SELECT telegram_id, device_expires_at as subscription_expires_at, device_token as subscription_token '
+                f'FROM "{DEVICES_TABLE}" WHERE device_token = $1',
+                token,
+            )
+            if row:
+                return dict(row)
+
+            row = await conn.fetchrow(
                 f'SELECT telegram_id, subscription_expires_at, subscription_token FROM "{USERS_TABLE}" '
                 f'WHERE subscription_token = $1',
                 token,
@@ -385,6 +420,15 @@ async def get_subscription_record_by_token(token: str) -> Optional[dict]:
     else:
         async with aiosqlite.connect(DB_PATH) as db:
             db.row_factory = aiosqlite.Row
+            cur = await db.execute(
+                f"SELECT telegram_id, device_expires_at as subscription_expires_at, device_token as subscription_token "
+                f"FROM {DEVICES_TABLE} WHERE device_token = ?",
+                (token,),
+            )
+            row = await cur.fetchone()
+            if row:
+                return dict(row)
+
             cur = await db.execute(
                 f"SELECT telegram_id, subscription_expires_at, subscription_token FROM {USERS_TABLE} WHERE subscription_token = ?",
                 (token,),
@@ -503,6 +547,129 @@ async def list_user_ids(limit: int = 500, offset: int = 0) -> list[int]:
         return [int(r[0]) for r in rows]
 
 
+async def count_active_devices(telegram_id: int) -> int:
+    """Количество активных устройств (лимит: максимум 4 на подписку)."""
+    now = _now()
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            cnt = await conn.fetchval(
+                f'SELECT COUNT(1) FROM "{DEVICES_TABLE}" '
+                f'WHERE telegram_id = $1 AND disabled = 0 AND device_expires_at > $2',
+                telegram_id,
+                now,
+            )
+            return int(cnt or 0)
+        finally:
+            await conn.close()
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            f"SELECT COUNT(1) FROM {DEVICES_TABLE} WHERE telegram_id = ? AND disabled = 0 AND device_expires_at > ?",
+            (telegram_id, now),
+        )
+        row = await cur.fetchone()
+        return int(row[0] or 0) if row else 0
+
+
+async def list_devices_by_telegram_id(telegram_id: int, limit: int = 20) -> list[dict]:
+    limit = max(1, min(int(limit), 50))
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            rows = await conn.fetch(
+                f'SELECT * FROM "{DEVICES_TABLE}" WHERE telegram_id = $1 ORDER BY created_at DESC LIMIT $2',
+                telegram_id,
+                limit,
+            )
+            return [dict(r) for r in rows]
+        finally:
+            await conn.close()
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            f"SELECT * FROM {DEVICES_TABLE} WHERE telegram_id = ? ORDER BY created_at DESC LIMIT ?",
+            (telegram_id, limit),
+        )
+        rows = await cur.fetchall()
+        return [dict(r) for r in rows]
+
+
+async def create_device_slot(telegram_id: int, platform: str, expires_at: int, *, max_devices: int = 4) -> dict:
+    """
+    Создать устройство (токен) для подключения.
+    Лимит: максимум `max_devices` активных устройств на подписку.
+    """
+    active = await count_active_devices(telegram_id)
+    if active >= max_devices:
+        raise ValueError("Лимит устройств (4) достигнут. Отключите одно из устройств в списке.")
+
+    now = _now()
+    token = _create_token()
+
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            row = await conn.fetchrow(
+                f'''INSERT INTO "{DEVICES_TABLE}" (telegram_id, platform, device_token, device_expires_at, disabled, created_at)
+                    VALUES ($1, $2, $3, $4, 0, $5)
+                    RETURNING id, telegram_id, platform, device_token, device_expires_at, disabled, created_at''',
+                telegram_id,
+                platform,
+                token,
+                int(expires_at),
+                now,
+            )
+            return dict(row) if row else {"device_token": token}
+        finally:
+            await conn.close()
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            f"""INSERT INTO {DEVICES_TABLE} (telegram_id, platform, device_token, device_expires_at, disabled, created_at)
+                VALUES (?, ?, ?, ?, 0, ?)""",
+            (telegram_id, platform, token, int(expires_at), now),
+        )
+        await db.commit()
+        dev_id = cur.lastrowid
+        return {
+            "id": dev_id,
+            "telegram_id": telegram_id,
+            "platform": platform,
+            "device_token": token,
+            "device_expires_at": int(expires_at),
+            "disabled": 0,
+            "created_at": now,
+        }
+
+
+async def disable_device_by_id(telegram_id: int, device_id: int) -> bool:
+    """Отключить устройство: делаем токен невалидным (expires_at=0)."""
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            res = await conn.execute(
+                f'UPDATE "{DEVICES_TABLE}" SET disabled = 1, device_expires_at = 0 WHERE id = $1 AND telegram_id = $2',
+                device_id,
+                telegram_id,
+            )
+            # asyncpg returns like: "UPDATE <n>"
+            tail = str(res).strip().split(" ", 1)[-1]
+            return int(tail or 0) > 0
+        finally:
+            await conn.close()
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            f'UPDATE {DEVICES_TABLE} SET disabled = 1, device_expires_at = 0 WHERE id = ? AND telegram_id = ?',
+            (device_id, telegram_id),
+        )
+        await db.commit()
+        return int(cur.rowcount or 0) > 0
+
+
 async def reset_subscription_token(telegram_id: int) -> str:
     """Сбросить токен подписки для пользователя."""
     token = _create_token()
@@ -514,6 +681,23 @@ async def block_subscription(telegram_id: int) -> None:
     """Блокировать подписку: сбросить expire и обновить токен."""
     token = await reset_subscription_token(telegram_id)
     await update_user(telegram_id, subscription_expires_at=0, subscription_token=token)
+    # Блокировка подписки должна деактивировать устройства пользователя.
+    if USE_POSTGRES:
+        conn = await asyncpg.connect(_pg_url())
+        try:
+            await conn.execute(
+                f'UPDATE "{DEVICES_TABLE}" SET disabled = 1, device_expires_at = 0 WHERE telegram_id = $1',
+                telegram_id,
+            )
+        finally:
+            await conn.close()
+    else:
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(
+                f'UPDATE {DEVICES_TABLE} SET disabled = 1, device_expires_at = 0 WHERE telegram_id = ?',
+                (telegram_id,),
+            )
+            await db.commit()
 
 
 async def create_or_extend_subscription(telegram_id: int, days: int, plan_id: str, cost: float) -> tuple[str, int]:
@@ -539,6 +723,12 @@ async def create_or_extend_subscription(telegram_id: int, days: int, plan_id: st
                 f'''UPDATE "{USERS_TABLE}" SET balance = balance - $1, subscription_expires_at = $2,
                     subscription_token = $3, updated_at = $4 WHERE telegram_id = $5''',
                 cost, new_expires, token, now, telegram_id,
+            )
+            # Продление подписки обновляет срок действия активных устройств.
+            await conn.execute(
+                f'UPDATE "{DEVICES_TABLE}" SET device_expires_at = $1 WHERE telegram_id = $2 AND disabled = 0',
+                new_expires,
+                telegram_id,
             )
             await conn.execute(
                 f'INSERT INTO "{PURCHASES_TABLE}" (telegram_id, plan_id, days, amount, created_at) VALUES ($1, $2, $3, $4, $5)',
@@ -567,6 +757,11 @@ async def create_or_extend_subscription(telegram_id: int, days: int, plan_id: st
                 f"""UPDATE {USERS_TABLE} SET balance = balance - ?, subscription_expires_at = ?,
                     subscription_token = ?, updated_at = ? WHERE telegram_id = ?""",
                 (cost, new_expires, token, now, telegram_id),
+            )
+            # Продление подписки обновляет срок действия активных устройств.
+            await db.execute(
+                f"UPDATE {DEVICES_TABLE} SET device_expires_at = ? WHERE telegram_id = ? AND disabled = 0",
+                (int(new_expires), telegram_id),
             )
             await db.execute(
                 f"INSERT INTO {PURCHASES_TABLE} (telegram_id, plan_id, days, amount, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -599,6 +794,12 @@ async def add_gift_subscription_days(telegram_id: int, days: int, plan_id: str) 
                     subscription_token = $2, updated_at = $3 WHERE telegram_id = $4''',
                 new_expires, token, now, telegram_id,
             )
+            # Продление бонусом обновляет срок действия активных устройств.
+            await conn.execute(
+                f'UPDATE "{DEVICES_TABLE}" SET device_expires_at = $1 WHERE telegram_id = $2 AND disabled = 0',
+                new_expires,
+                telegram_id,
+            )
             await conn.execute(
                 f'INSERT INTO "{PURCHASES_TABLE}" (telegram_id, plan_id, days, amount, created_at) VALUES ($1, $2, $3, $4, $5)',
                 telegram_id, plan_id, days, 0.0, now,
@@ -624,6 +825,11 @@ async def add_gift_subscription_days(telegram_id: int, days: int, plan_id: str) 
             f"""UPDATE {USERS_TABLE} SET subscription_expires_at = ?,
                 subscription_token = ?, updated_at = ? WHERE telegram_id = ?""",
             (new_expires, token, now, telegram_id),
+        )
+        # Продление бонусом обновляет срок действия активных устройств.
+        await db.execute(
+            f"UPDATE {DEVICES_TABLE} SET device_expires_at = ? WHERE telegram_id = ? AND disabled = 0",
+            (int(new_expires), telegram_id),
         )
         await db.execute(
             f"INSERT INTO {PURCHASES_TABLE} (telegram_id, plan_id, days, amount, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -656,6 +862,11 @@ async def _gift_days_conn_pg(
         new_expires,
         token,
         now,
+        telegram_id,
+    )
+    await conn.execute(
+        f'UPDATE "{DEVICES_TABLE}" SET device_expires_at = $1 WHERE telegram_id = $2 AND disabled = 0',
+        new_expires,
         telegram_id,
     )
     await conn.execute(
@@ -754,6 +965,10 @@ async def apply_referral_bonus(referee_id: int, referrer_id: int) -> bool:
                     f"""UPDATE {USERS_TABLE} SET subscription_expires_at = ?,
                         subscription_token = ?, updated_at = ? WHERE telegram_id = ?""",
                     (new_expires, token_u, now, uid),
+                )
+                await db.execute(
+                    f"UPDATE {DEVICES_TABLE} SET device_expires_at = ? WHERE telegram_id = ? AND disabled = 0",
+                    (int(new_expires), uid),
                 )
                 await db.execute(
                     f"INSERT INTO {PURCHASES_TABLE} (telegram_id, plan_id, days, amount, created_at) VALUES (?, ?, ?, ?, ?)",

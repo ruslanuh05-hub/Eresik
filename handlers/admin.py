@@ -39,8 +39,12 @@ def admin_keyboard():
     ])
 
 
-@router.message(Command("admin"), AdminFilter())
+@router.message(Command("admin"))
 async def cmd_admin(msg: Message):
+    if msg.from_user.id not in ADMIN_IDS:
+        await msg.answer("Доступ запрещен.")
+        return
+
     # `/admin` теперь открывает вашу расширенную админ-панель (а редактирование цены доступно в разделе "Настройки").
     from handlers.admin_panel import admin_main_keyboard
 

@@ -1,6 +1,7 @@
 """Личный кабинет пользователя."""
 
 import logging
+import asyncio
 import time as time_module
 from html import escape
 from urllib.parse import quote
@@ -18,7 +19,13 @@ from aiogram.types import (
 )
 from aiogram.filters import Command
 
-from database import get_or_create_user
+from database import (
+    get_or_create_user,
+    count_active_devices,
+    list_devices_by_telegram_id,
+    create_device_slot,
+    disable_device_by_id,
+)
 from config import (
     CABINET_PREMIUM_EMOJI,
     IMPORT_BRIDGE_BASE,
@@ -31,6 +38,53 @@ from handlers.keyboards_common import back_btn, row_back_main
 
 logger = logging.getLogger("jvpn-bot.cabinet")
 router = Router()
+
+
+HAPP_CRYPTO_API = "https://crypto.happ.su/api-v2.php"
+_HAPP_CRYPTO_CACHE: dict[str, tuple[str, float]] = {}
+
+
+async def _happ_encrypt_subscription_url(sub_url: str) -> str:
+    """
+    Защитная обертка: шифруем subscription URL через Happ crypto API.
+
+    Возвращает строку вида `happ://crypt4/...` или `happ://crypt5/...`.
+    """
+    now = time_module.time()
+    cached = _HAPP_CRYPTO_CACHE.get(sub_url)
+    if cached and now - cached[1] < 300:  # 5 минут
+        return cached[0]
+
+    # import внутри функции, чтобы не тащить лишнее при импорте модуля
+    import httpx
+
+    encrypted: str = ""
+    try:
+        async with httpx.AsyncClient(timeout=12.0) as client:
+            resp = await client.post(
+                HAPP_CRYPTO_API,
+                json={"url": sub_url},
+                headers={"Content-Type": "application/json"},
+            )
+            resp.raise_for_status()
+            # API может вернуть либо JSON, либо plain text.
+            try:
+                data = resp.json()
+                if isinstance(data, dict):
+                    encrypted = str(data.get("url") or data.get("result") or data.get("data") or "").strip()
+                elif isinstance(data, str):
+                    encrypted = data.strip()
+            except Exception:
+                encrypted = resp.text.strip().strip('"')
+    except Exception:
+        encrypted = ""
+
+    # Если API внезапно вернул пусто — возвращаем исходный URL как fallback.
+    if not encrypted:
+        encrypted = sub_url
+
+    _HAPP_CRYPTO_CACHE[sub_url] = (encrypted, now)
+    return encrypted
 
 
 async def _send_subs_screen(cb: CallbackQuery, text: str, reply_markup, parse_mode: str = "HTML"):
@@ -145,7 +199,7 @@ def _deep_link_url(app: str, personal_sub_url: str) -> str:
     return personal_sub_url
 
 
-def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardMarkup:
+async def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardMarkup:
     """
     Шаг 2: кнопки-ссылки на HTTPS-страницу /open/... (редирект в приложение).
     Android / iOS: v2RayTun | Happ; ПК: Hiddify | Happ.
@@ -157,7 +211,7 @@ def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardM
 
     rows = []
     def _link(app: str) -> str | None:
-        # Telegram url= только http/https.
+        # Для v2raytun/hiddify сохраняем подход "только https" (Telegram не любит custom-scheme в url).
         if IMPORT_BRIDGE_BASE:
             u = _bridge_url(app, personal_sub_url)
         elif personal_sub_url and personal_sub_url.startswith("https://"):
@@ -166,16 +220,28 @@ def app_import_keyboard(platform: str, personal_sub_url: str) -> InlineKeyboardM
             u = personal_sub_url or ""
         return u if u.startswith("https://") and len(u) < 500 else None
 
-    def _url_btn(text: str, app: str) -> InlineKeyboardButton | None:
+    async def _url_btn(text: str, app: str) -> InlineKeyboardButton | None:
+        if app == "happ":
+            encrypted = await _happ_encrypt_subscription_url(personal_sub_url)
+            # Вставляем именно зашифрованную ссылку happ://crypt4/... в кнопку.
+            if encrypted.startswith("happ://"):
+                return InlineKeyboardButton(text=text, url=encrypted)
+            # Fallback на bridge, если API вернул неожиданное значение.
+            if IMPORT_BRIDGE_BASE:
+                url = _bridge_url(app, personal_sub_url)
+                if url.startswith("https://") and len(url) < 500:
+                    return InlineKeyboardButton(text=text, url=url)
+            return None
+
         url = _link(app)
         return InlineKeyboardButton(text=text, url=url) if url else None
 
     if platform in ("android", "ios"):
-        btns = [_url_btn("v2RayTun", "v2raytun"), _url_btn("Happ", "happ")]
+        btns = await asyncio.gather(_url_btn("v2RayTun", "v2raytun"), _url_btn("Happ", "happ"))
         if any(btns):
             rows.append([b for b in btns if b is not None])
     elif platform == "pc":
-        btns = [_url_btn("Hiddify", "hiddify"), _url_btn("Happ", "happ")]
+        btns = await asyncio.gather(_url_btn("Hiddify", "hiddify"), _url_btn("Happ", "happ"))
         if any(btns):
             rows.append([b for b in btns if b is not None])
     rows.append([_plain_back_btn("subdev:menu", "К устройствам")])
@@ -225,6 +291,14 @@ def my_subscriptions_actions_keyboard(is_active: bool) -> InlineKeyboardMarkup:
                     callback_data="subdev:menu",
                     icon_custom_emoji_id=E.MOLNY,
                 ),
+            ]
+        )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="Устройства",
+                    callback_data="devices:menu",
+                )
             ]
         )
     else:
@@ -461,6 +535,14 @@ async def _sub_url_for_user(telegram_id: int) -> str | None:
     return None
 
 
+def _sub_url_for_token(token: str) -> str | None:
+    if not token:
+        return None
+    if PUBLIC_BASE_URL:
+        return f"{PUBLIC_BASE_URL}/sub/{token}.txt"
+    return f"{UPSTREAM_SUB_URL}?token={token}"
+
+
 @router.message(Command("my"))
 @router.message(Command("cabinet"))
 async def cmd_my(msg: Message):
@@ -638,17 +720,91 @@ async def show_my_subscriptions(cb: CallbackQuery):
             pass
 
 
+async def _render_devices_menu(cb: CallbackQuery) -> None:
+    uid = cb.from_user.id
+    user = await get_or_create_user(uid)
+    expires_at = user.get("subscription_expires_at")
+    now = int(time_module.time())
+    if not expires_at or expires_at <= now:
+        await _send_subs_screen(
+            cb,
+            "Подписка не активна. Купите подписку в разделе «Купить подписку».",
+            my_subscriptions_actions_keyboard(is_active=False),
+            parse_mode="HTML",
+        )
+        return
+
+    devices = await list_devices_by_telegram_id(uid, limit=4)
+    active_count = await count_active_devices(uid)
+
+    text = "📱 <b>Устройства</b>\n\n"
+    text += f"Активных: {active_count}/4\n"
+    if not devices:
+        text += "\nПока нет устройств. Нажмите «Выбор подключения» для добавления устройств."
+
+    kb_rows: list[list[InlineKeyboardButton]] = []
+    for d in devices:
+        did = int(d.get("id") or 0)
+        platform = d.get("platform") or "device"
+        created_at = d.get("created_at")
+        disabled = int(d.get("disabled") or 0)
+        dev_expires = int(d.get("device_expires_at") or 0)
+
+        status = "🟢 Активно" if (disabled == 0 and dev_expires > now) else "⚪️ Отключено/истекло"
+        created_s = _format_date(int(created_at)) if created_at else "—"
+        text += f"\n\n{_platform_title(platform)}\n{status}\nСоздано: {created_s}"
+
+        if disabled == 0 and dev_expires > now and did:
+            kb_rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"⛔️ Отключить",
+                        callback_data=f"devices:disable:{did}",
+                    )
+                ]
+            )
+
+    kb_rows.append([back_btn(callback_data="my_subscriptions", text="Назад")])
+    kb = InlineKeyboardMarkup(inline_keyboard=kb_rows)
+    await _send_subs_screen(cb, text, kb, parse_mode="HTML")
+
+
+@router.callback_query(F.data == "devices:menu")
+async def devices_menu(cb: CallbackQuery):
+    await cb.answer()
+    try:
+        await _render_devices_menu(cb)
+    except Exception:
+        logger.exception("devices_menu failed")
+        await cb.bot.send_message(cb.from_user.id, "Не удалось открыть список устройств.")
+
+
+@router.callback_query(F.data.startswith("devices:disable:"))
+async def devices_disable(cb: CallbackQuery):
+    await cb.answer()
+    try:
+        uid = cb.from_user.id
+        parts = str(cb.data).split(":", 2)
+        device_id = int(parts[2]) if len(parts) >= 3 else 0
+        if not device_id:
+            await cb.message.edit_text("Некорректный ID устройства.", reply_markup=my_subscriptions_actions_keyboard(is_active=True))
+            return
+        await disable_device_by_id(uid, device_id)
+        await _render_devices_menu(cb)
+    except Exception:
+        logger.exception("devices_disable failed")
+        await cb.bot.send_message(cb.from_user.id, "Не удалось отключить устройство.")
+
+
 @router.callback_query(F.data.startswith("subdev:"))
 async def handle_subdev_step(cb: CallbackQuery):
     """Выбор устройства: android / ios / pc или возврат subdev:menu."""
     data = cb.data or ""
     if data == "subdev:menu":
         user = await get_or_create_user(cb.from_user.id)
-        token = user.get("subscription_token")
         expires_at = user.get("subscription_expires_at")
-        personal_sub_url = await _sub_url_for_user(cb.from_user.id)
         now = int(time_module.time())
-        if not (token and expires_at and expires_at > now and personal_sub_url):
+        if not (expires_at and expires_at > now):
             await cb.answer("Подписка не активна", show_alert=True)
             return
         await cb.answer()
@@ -656,7 +812,7 @@ async def handle_subdev_step(cb: CallbackQuery):
         await _send_subs_screen(
             cb,
             text,
-            device_selection_keyboard(has_sub_url=True, back_callback="my_subscriptions"),
+            device_selection_keyboard(has_sub_url=False, back_callback="my_subscriptions"),
             parse_mode="HTML",
         )
         return
@@ -666,29 +822,45 @@ async def handle_subdev_step(cb: CallbackQuery):
         await cb.answer()
         return
 
-    try:
-        user = await get_or_create_user(cb.from_user.id)
-        token = user.get("subscription_token")
-        expires_at = user.get("subscription_expires_at")
-        personal_sub_url = await _sub_url_for_user(cb.from_user.id)
-        now = int(time_module.time())
-        if not (token and expires_at and expires_at > now and personal_sub_url):
-            await cb.answer("Подписка не активна", show_alert=True)
-            return
-
-        await cb.answer()
-        text = build_my_subscriptions_text(expires_at, platform=platform)
-        kb = app_import_keyboard(platform, personal_sub_url)
-        await _send_subs_screen(cb, text, kb, parse_mode="HTML")
-    except Exception:
-        logger.exception("handle_subdev_step failed")
         try:
-            await cb.bot.send_message(
-                cb.from_user.id,
-                "Не удалось открыть экран. Проверьте, что подписка активна, и попробуйте /sub.",
-            )
+            user = await get_or_create_user(cb.from_user.id)
+            expires_at = user.get("subscription_expires_at")
+            now = int(time_module.time())
+            if not (expires_at and expires_at > now):
+                await cb.answer("Подписка не активна", show_alert=True)
+                return
+
+            await cb.answer()
+            # Создаём токен "устройства" и используем его для импорта.
+            try:
+                device = await create_device_slot(cb.from_user.id, platform, int(expires_at), max_devices=4)
+            except ValueError as e:
+                await cb.bot.send_message(
+                    cb.from_user.id,
+                    f"{str(e)}\n\nОткройте список устройств и отключите одно из них.",
+                    reply_markup=InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [InlineKeyboardButton(text="📱 Устройства", callback_data="devices:menu")],
+                            [back_btn(callback_data="my_subscriptions", text="Назад")],
+                        ]
+                    ),
+                )
+                return
+
+            device_token = str(device.get("device_token") or "")
+            device_sub_url = _sub_url_for_token(device_token)
+            text = build_my_subscriptions_text(int(expires_at), platform=platform)
+            kb = await app_import_keyboard(platform, device_sub_url)
+            await _send_subs_screen(cb, text, kb, parse_mode="HTML")
         except Exception:
-            pass
+            logger.exception("handle_subdev_step failed")
+            try:
+                await cb.bot.send_message(
+                    cb.from_user.id,
+                    "Не удалось открыть экран. Проверьте, что подписка активна, и попробуйте /sub.",
+                )
+            except Exception:
+                pass
 
 
 @router.callback_query(F.data == "sub:copy_link")

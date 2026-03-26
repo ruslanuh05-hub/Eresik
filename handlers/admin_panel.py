@@ -12,6 +12,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from handlers.admin import AdminFilter
+from config import ADMIN_IDS
 from database import (
     add_gift_subscription_days,
     block_subscription,
@@ -102,8 +103,11 @@ def _section_text(section: str) -> str:
     return mapping.get(section, "Админ-панель")
 
 
-@router.message(Command("adminpanel"), AdminFilter())
+@router.message(Command("adminpanel"))
 async def cmd_adminpanel(msg: Message, state: FSMContext):
+    if msg.from_user.id not in ADMIN_IDS:
+        await msg.answer("Доступ запрещен.")
+        return
     await state.clear()
     await msg.answer(_section_text("admin"), reply_markup=admin_main_keyboard())
 
