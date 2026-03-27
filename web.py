@@ -217,6 +217,15 @@ async def subscription_handler(request: web.Request) -> web.Response:
             logger.exception("Bad subscription_expires_at type (token=%s): %s", token[:12], e)
             return web.Response(status=500, text="Bad subscription expires")
 
+        # Для устройств: если токен отключён/истёк, возвращаем 403.
+        # Это заставляет Happ/клиента пересматривать статус при следующем запросе.
+        try:
+            now_ts = int(time.time())
+        except Exception:
+            now_ts = 0
+        if int(sub.get("is_device") or 0) == 1 and expire_unix <= now_ts:
+            return web.Response(status=403, text="Subscription expired")
+
         # Формируем userinfo для клиентов (Happ лучше читает это из HTTP-заголовка).
         sub_userinfo = f"upload=0; download=0; total=1073741824000; expire={expire_unix}"
 

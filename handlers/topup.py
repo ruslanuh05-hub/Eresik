@@ -3,13 +3,13 @@
 import time
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from database import get_or_create_user, add_payment, add_balance
-from freekassa import create_payment_url_any
-from config import FREKASSA_SHOP_ID, PUBLIC_BASE_URL, ADMIN_IDS
+from freekassa import create_payment_url_api_with_method
+from config import FREKASSA_API_KEY, FREKASSA_SHOP_ID, FREKASSA_SERVER_IP, PUBLIC_BASE_URL, ADMIN_IDS
 from tgemoji import E, tg
 from handlers.keyboards_common import back_btn, row_back_main
 from handlers.ui_nav import apply_screen_from_message
@@ -19,6 +19,7 @@ router = Router()
 
 class TopUpStates(StatesGroup):
     waiting_amount = State()
+    waiting_payment_method = State()
 
 
 async def _safe_edit_message(message: Message, text: str, reply_markup, parse_mode: str = "HTML") -> None:
@@ -122,8 +123,26 @@ async def topup_amount(cb: CallbackQuery, state: FSMContext):
         await cb.answer("Минимум 50 ₽", show_alert=True)
         return
 
-    await process_topup(cb, cb.from_user.id, amount)
+    # шаг 2: выбрать способ оплаты (СБП QR или карта)
+    await state.set_state(TopUpStates.waiting_payment_method)
+    await state.update_data(amount=amount)
     await cb.answer()
+    await _safe_edit_message(
+        cb.message,
+        f"Выберите способ оплаты для <b>{amount:.2f} ₽</b>:",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="СБП (QR)", callback_data="topup:method:44", icon_custom_emoji_id=E.MONEY),
+                ],
+                [
+                    InlineKeyboardButton(text="Карта РФ", callback_data="topup:method:36", icon_custom_emoji_id=E.MONEY),
+                ],
+                [back_btn(callback_data="topup", text="Назад")],
+            ]
+        ),
+        parse_mode="HTML",
+    )
 
 
 @router.message(TopUpStates.waiting_amount, F.text)
@@ -138,8 +157,24 @@ async def topup_custom_amount(msg: Message, state: FSMContext):
         await msg.answer("Минимальная сумма — 50 ₽")
         return
 
-    await state.clear()
-    await do_send_payment_link(msg, msg.from_user.id, amount)
+    await state.set_state(TopUpStates.waiting_payment_method)
+    await state.update_data(amount=amount)
+
+    await msg.answer(
+        f"Выберите способ оплаты для <b>{amount:.2f} ₽</b>:",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="СБП (QR)", callback_data="topup:method:44", icon_custom_emoji_id=E.MONEY),
+                ],
+                [
+                    InlineKeyboardButton(text="Карта РФ", callback_data="topup:method:36", icon_custom_emoji_id=E.MONEY),
+                ],
+                [back_btn(callback_data="topup", text="Назад")],
+            ]
+        ),
+    )
 
 
 async def process_test_payment(cb: CallbackQuery, telegram_id: int, amount: float):
@@ -157,23 +192,43 @@ async def process_test_payment(cb: CallbackQuery, telegram_id: int, amount: floa
     )
 
 
-async def process_topup(cb: CallbackQuery, telegram_id: int, amount: float):
-    """Создать платёж и отправить ссылку (для callback из кнопок)."""
-    if not FREKASSA_SHOP_ID or not PUBLIC_BASE_URL:
+@router.callback_query(F.data.startswith("topup:method:"),)
+async def topup_select_method(cb: CallbackQuery, state: FSMContext):
+    await cb.answer()
+    try:
+        method_parts = str(cb.data).split(":")
+        payment_system_i = int(method_parts[2])
+    except Exception:
+        await cb.answer("Неверный способ оплаты.", show_alert=True)
+        return
+
+    data = await state.get_data()
+    amount = data.get("amount")
+    if amount is None:
+        await cb.answer("Сначала выберите сумму.", show_alert=True)
+        return
+
+    await state.clear()
+    await process_topup(cb, cb.from_user.id, float(amount), payment_system_i=payment_system_i)
+
+
+async def process_topup(cb: CallbackQuery, telegram_id: int, amount: float, *, payment_system_i: int):
+    """Создать платёж и отправить ссылку через FreeKassa API."""
+    if not (FREKASSA_API_KEY and FREKASSA_SERVER_IP and FREKASSA_SHOP_ID and PUBLIC_BASE_URL):
         await _safe_edit_message(
             cb.message,
-            "⚠️ Оплата через FreeKassa не настроена. Обратитесь к администратору.",
+            "⚠️ Оплата через FreeKassa API не настроена. Проверьте env: FREKASSA_API_KEY/FREKASSA_SERVER_IP/FREKASSA_SHOP_ID и retry.",
             reply_markup=None,
             parse_mode="HTML",
         )
         return
 
     order_id = f"jvpn_{telegram_id}_{int(time.time())}"
-    url = await create_payment_url_any(amount, order_id, telegram_id)
+    url = await create_payment_url_api_with_method(amount, order_id, telegram_id, payment_system_i)
     if not url:
         await _safe_edit_message(
             cb.message,
-            "⚠️ Ошибка создания платежа.",
+            "⚠️ Ошибка создания платежа (API). Проверьте настройки FreeKassa и env (особенно FREKASSA_SERVER_IP).",
             reply_markup=None,
             parse_mode="HTML",
         )
@@ -196,35 +251,5 @@ async def process_topup(cb: CallbackQuery, telegram_id: int, amount: float):
         "После успешной оплаты баланс пополнится автоматически.",
         reply_markup=kb,
         parse_mode="HTML",
-    )
-
-
-async def do_send_payment_link(msg: Message, telegram_id: int, amount: float):
-    """Отправить ссылку на оплату (для custom amount)."""
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-    if not FREKASSA_SHOP_ID or not PUBLIC_BASE_URL:
-        await msg.answer("⚠️ Оплата не настроена.")
-        return
-
-    order_id = f"jvpn_{telegram_id}_{int(time.time())}"
-    url = await create_payment_url_any(amount, order_id, telegram_id)
-    if not url:
-        await msg.answer("⚠️ Ошибка создания платежа.")
-        return
-
-    await add_payment(telegram_id, amount, order_id, "", "pending")
-
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🔗 Перейти к оплате", url=url)],
-            [back_btn(callback_data="topup", text="Назад")],
-        ]
-    )
-    await msg.answer(
-        f"💳 <b>Оплата {amount:.2f} ₽</b>\n\n"
-        "Нажмите кнопку ниже для перехода к оплате.",
-        parse_mode="HTML",
-        reply_markup=kb,
     )
 

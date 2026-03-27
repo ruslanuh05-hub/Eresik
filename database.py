@@ -403,6 +403,7 @@ async def get_subscription_record_by_token(token: str) -> Optional[dict]:
         try:
             row = await conn.fetchrow(
                 f'SELECT telegram_id, device_expires_at as subscription_expires_at, device_token as subscription_token '
+                f', 1 as is_device '
                 f'FROM "{DEVICES_TABLE}" WHERE device_token = $1',
                 token,
             )
@@ -414,7 +415,11 @@ async def get_subscription_record_by_token(token: str) -> Optional[dict]:
                 f'WHERE subscription_token = $1',
                 token,
             )
-            return dict(row) if row else None
+            if not row:
+                return None
+            d = dict(row)
+            d["is_device"] = 0
+            return d
         finally:
             await conn.close()
     else:
@@ -422,7 +427,7 @@ async def get_subscription_record_by_token(token: str) -> Optional[dict]:
             db.row_factory = aiosqlite.Row
             cur = await db.execute(
                 f"SELECT telegram_id, device_expires_at as subscription_expires_at, device_token as subscription_token "
-                f"FROM {DEVICES_TABLE} WHERE device_token = ?",
+                f", 1 as is_device FROM {DEVICES_TABLE} WHERE device_token = ?",
                 (token,),
             )
             row = await cur.fetchone()
@@ -434,7 +439,11 @@ async def get_subscription_record_by_token(token: str) -> Optional[dict]:
                 (token,),
             )
             row = await cur.fetchone()
-            return dict(row) if row else None
+            if not row:
+                return None
+            d = dict(row)
+            d["is_device"] = 0
+            return d
 
 
 async def get_user_by_telegram_id(telegram_id: int) -> Optional[dict]:

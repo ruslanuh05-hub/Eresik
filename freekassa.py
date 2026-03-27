@@ -11,10 +11,10 @@ import httpx
 
 from config import (
     FREKASSA_API_KEY,
-    FREKASSA_PAYMENT_SYSTEM_ID,
     FREKASSA_SHOP_ID,
     FREKASSA_SECRET_1,
     FREKASSA_SECRET_2,
+    FREKASSA_SERVER_IP,
     PUBLIC_BASE_URL,
     FREKASSA_CALLBACK_PATH,
 )
@@ -81,17 +81,23 @@ async def create_payment_url_api(amount: float, order_id: str, telegram_id: int)
         return None
 
     nonce = int(time.time())
+    if not FREKASSA_SERVER_IP:
+        # по инструкции нельзя 127.0.0.1; нужен публичный IP сервера (или реальный IP, если есть).
+        return None
+
     payload = {
         "shopId": int(FREKASSA_SHOP_ID),
         "nonce": nonce,
         "paymentId": order_id,
-        "i": int(FREKASSA_PAYMENT_SYSTEM_ID),
+        # i будет передаваться параметром (см. ниже)
         # Email/IP обязательны в доке. В Telegram они не доступны — ставим безопасный плейсхолдер.
-        "email": f"tg{telegram_id}@noemail.local",
-        "ip": "127.0.0.1",
+        "email": f"{telegram_id}@telegram.org",
+        "ip": str(FREKASSA_SERVER_IP),
         "amount": float(f"{amount:.2f}"),
         "currency": "RUB",
+        "notification_url": get_callback_url(),
     }
+    # payment system id (i) добавим ниже в create_payment_url_api_with_method
     payload["signature"] = _api_signature(payload)
 
     try:
@@ -120,13 +126,63 @@ async def create_payment_url_api(amount: float, order_id: str, telegram_id: int)
     return None
 
 
-async def create_payment_url_any(amount: float, order_id: str, telegram_id: int) -> Optional[str]:
-    """Если задан API key — используем API, иначе SCI-ссылку."""
-    if FREKASSA_API_KEY:
-        url = await create_payment_url_api(amount, order_id, telegram_id)
-        if url:
-            return url
-    return create_payment_url(amount, order_id, telegram_id)
+async def create_payment_url_api_with_method(
+    amount: float,
+    order_id: str,
+    telegram_id: int,
+    payment_system_i: int,
+) -> Optional[str]:
+    """
+    Создать заказ через FreeKassa API и вернуть ссылку.
+
+    payment_system_i:
+      44 - СБП (QR)
+      36 - Карты РФ
+      43 - SberPay
+    """
+    if not FREKASSA_API_KEY or not FREKASSA_SHOP_ID:
+        return None
+
+    if not FREKASSA_SERVER_IP:
+        return None
+
+    nonce = int(time.time())
+    payload = {
+        "shopId": int(FREKASSA_SHOP_ID),
+        "nonce": nonce,
+        "paymentId": order_id,
+        "i": int(payment_system_i),
+        "email": f"{telegram_id}@telegram.org",
+        "ip": str(FREKASSA_SERVER_IP),
+        "amount": float(f"{amount:.2f}"),
+        "currency": "RUB",
+        "notification_url": get_callback_url(),
+    }
+    payload["signature"] = _api_signature(payload)
+
+    try:
+        async with httpx.AsyncClient(timeout=12.0) as client:
+            resp = await client.post(
+                "https://api.fk.life/v1/orders/create",
+                content=json.dumps(payload),
+                headers={"Content-Type": "application/json"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception:
+        return None
+
+    if not isinstance(data, dict) or str(data.get("type")) != "success":
+        return None
+
+    loc = str(data.get("location") or "").strip()
+    if loc:
+        return loc
+    order_id_fk = data.get("orderId")
+    order_hash = data.get("orderHash")
+    if order_id_fk and order_hash:
+        return f"https://pay.freekassa.net/form/{order_id_fk}/{order_hash}"
+    return None
 
 
 def verify_callback(merchant_id: str, amount: str, order_id: str, sign: str) -> bool:
