@@ -83,7 +83,7 @@ async def topup_start(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
 
 
-@router.callback_query(F.data.startswith("topup:"))
+@router.callback_query(F.data.startswith("topup:") & ~F.data.startswith("topup:method:"))
 async def topup_amount(cb: CallbackQuery, state: FSMContext):
     data = cb.data.split(":")
 
