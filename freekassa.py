@@ -71,6 +71,18 @@ def _api_signature(data: dict) -> str:
     base = "|".join(str(items[k]) for k in sorted(items.keys()))
     return hmac.new(FREKASSA_API_KEY.encode(), base.encode(), hashlib.sha256).hexdigest()
 
+_LAST_NONCE: int = 0
+
+
+def _next_nonce() -> int:
+    """Nonce должен всегда быть больше предыдущего значения."""
+    global _LAST_NONCE
+    n = int(time.time() * 1000)
+    if n <= _LAST_NONCE:
+        n = _LAST_NONCE + 1
+    _LAST_NONCE = n
+    return n
+
 
 async def create_payment_url_api(amount: float, order_id: str, telegram_id: int) -> Optional[str]:
     """
@@ -80,7 +92,7 @@ async def create_payment_url_api(amount: float, order_id: str, telegram_id: int)
     if not FREKASSA_API_KEY or not FREKASSA_SHOP_ID:
         return None
 
-    nonce = int(time.time())
+    nonce = _next_nonce()
     if not FREKASSA_SERVER_IP:
         # по инструкции нельзя 127.0.0.1; нужен публичный IP сервера (или реальный IP, если есть).
         return None
@@ -93,7 +105,8 @@ async def create_payment_url_api(amount: float, order_id: str, telegram_id: int)
         # Email/IP обязательны в доке. В Telegram они не доступны — ставим безопасный плейсхолдер.
         "email": f"{telegram_id}@telegram.org",
         "ip": str(FREKASSA_SERVER_IP),
-        "amount": float(f"{amount:.2f}"),
+        # Важно: для подписи используем строку с 2 знаками, как в большинстве SDK/примеров.
+        "amount": f"{amount:.2f}",
         "currency": "RUB",
         "notification_url": get_callback_url(),
     }
@@ -104,7 +117,7 @@ async def create_payment_url_api(amount: float, order_id: str, telegram_id: int)
         async with httpx.AsyncClient(timeout=12.0) as client:
             resp = await client.post(
                 "https://api.fk.life/v1/orders/create",
-                content=json.dumps(payload),
+                json=payload,
                 headers={"Content-Type": "application/json"},
             )
             resp.raise_for_status()
@@ -146,7 +159,7 @@ async def create_payment_url_api_with_method(
     if not FREKASSA_SERVER_IP:
         return None
 
-    nonce = int(time.time())
+    nonce = _next_nonce()
     payload = {
         "shopId": int(FREKASSA_SHOP_ID),
         "nonce": nonce,
@@ -154,7 +167,7 @@ async def create_payment_url_api_with_method(
         "i": int(payment_system_i),
         "email": f"{telegram_id}@telegram.org",
         "ip": str(FREKASSA_SERVER_IP),
-        "amount": float(f"{amount:.2f}"),
+        "amount": f"{amount:.2f}",
         "currency": "RUB",
         "notification_url": get_callback_url(),
     }
@@ -164,7 +177,7 @@ async def create_payment_url_api_with_method(
         async with httpx.AsyncClient(timeout=12.0) as client:
             resp = await client.post(
                 "https://api.fk.life/v1/orders/create",
-                content=json.dumps(payload),
+                json=payload,
                 headers={"Content-Type": "application/json"},
             )
             resp.raise_for_status()
